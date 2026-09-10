@@ -48,7 +48,8 @@ with st.form("prediction_form"):
     municipality = st.selectbox("Kommun", get_municipalities())
     living_area = st.number_input("Boarea (m²)", min_value=1.0, value=80.0)
     land_area = st.number_input("Tomtarea (m²)", min_value=0.0, value=0.0)
-    number_rooms = st.number_input("Antal rum", min_value=1.0, value=3.0, step=0.5)
+    number_rooms = st.number_input(
+        "Antal rum", min_value=1.0, value=3.0, step=0.5)
     latitude = st.number_input("Latitud", value=55.605)
     longitude = st.number_input("Longitud", value=13.003)
     month = st.slider("Månad", 1, 12, 6)
@@ -69,4 +70,5 @@ if submitted:
     model_input = prepare_input(user_input, feature_columns)
     prediction = float(model.predict(model_input)[0])
 
-    st.success(f"Uppskattat utgångspris: {prediction:,.0f} kr".replace(",", " "))
+    st.success(
+        f"Uppskattat utgångspris: {prediction:,.0f} kr".replace(",", " "))
