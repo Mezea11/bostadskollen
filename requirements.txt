@@ -6,4 +6,5 @@ xgboost
 joblib
 matplotlib
 seaborn
-
+folium
+streamlit-folium
