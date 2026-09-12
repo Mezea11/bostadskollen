@@ -365,7 +365,6 @@ if submitted:
     st.html(
         f"""
         <div id="result" style="
-            background-color: #f1f5f9;
             border-radius: 12px;
             padding: 28px;
             margin-top: 25px;
