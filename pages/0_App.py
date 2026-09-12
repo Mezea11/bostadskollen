@@ -10,6 +10,7 @@ from streamlit_folium import st_folium
 
 from src.model_loader import load_model_bundle
 from src.preprocessing import prepare_input
+from src.schemas import HousingInput
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -326,15 +327,18 @@ if submitted:
     feature_columns = bundle["feature_columns"]
 
     # Samla användarens input
-    user_input = {
-        "typology": typology,
-        "municipality": municipality,
-        "land_area_sqm": land_area,
-        "living_area_sqm": living_area,
-        "number_rooms": number_rooms,
-        "latitude": st.session_state.latitude,
-        "longitude": st.session_state.longitude,
-    }
+    housing_input = HousingInput(
+        typology=typology,
+        municipality=municipality,
+        land_area_sqm=land_area,
+        living_area_sqm=living_area,
+        number_rooms=number_rooms,
+        latitude=st.session_state.latitude,
+        longitude=st.session_state.longitude,
+    )
+
+    # Omvandla Pydantic-modellen till dictionary
+    user_input = housing_input.model_dump()
 
     # Förbered input för modellen
     model_input = prepare_input(
@@ -360,7 +364,7 @@ if submitted:
 
     st.html(
         f"""
-        <div id="resultat" style="
+        <div id="result" style="
             background-color: #f1f5f9;
             border-radius: 12px;
             padding: 28px;
@@ -411,7 +415,7 @@ if submitted:
 
         <script>
             setTimeout(function() {{
-                document.getElementById("resultat").scrollIntoView({{
+                document.getElementById("result").scrollIntoView({{
                     behavior: "smooth",
                     block: "center"
                 }});
