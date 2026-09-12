@@ -1,4 +1,7 @@
 from pathlib import Path
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+import json
 
 import pandas as pd
 import streamlit as st
@@ -14,6 +17,10 @@ DATA_PATH = ROOT / "data" / "SwedenHousingPrices.csv"
 MODELS_DIR = ROOT / "models"
 
 
+# =========================
+# KOMMUNER
+# =========================
+
 @st.cache_data
 def get_municipalities() -> list[str]:
     df = pd.read_csv(DATA_PATH, encoding="utf-8-sig")
@@ -27,14 +34,102 @@ def get_municipalities() -> list[str]:
     )
 
 
-@st.cache_resource
-def load_bundle(path: Path) -> dict:
-    return load_model_bundle(path)
+# =========================
+# REVERSE GEOCODING
+# =========================
+
+@st.cache_data(ttl=86400)
+def get_municipality_from_coordinates(
+    latitude: float,
+    longitude: float
+) -> str | None:
+
+    params = urlencode({
+        "lat": latitude,
+        "lon": longitude,
+        "format": "jsonv2",
+        "addressdetails": 1,
+        "accept-language": "sv",
+        "zoom": 10,
+    })
+
+    url = f"https://nominatim.openstreetmap.org/reverse?{params}"
+
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "Bostadskollen/1.0"
+        }
+    )
+
+    try:
+        with urlopen(request, timeout=5) as response:
+            data = json.loads(
+                response.read().decode("utf-8")
+            )
+
+        address = data.get("address", {})
+
+        municipality = address.get("municipality")
+
+        if municipality:
+            return municipality
+
+        return (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+        )
+
+    except Exception:
+        return None
+
+
+def match_municipality(
+    geocoded_municipality: str | None,
+    municipalities: list[str]
+) -> str | None:
+
+    if not geocoded_municipality:
+        return None
+
+    # Exakt match
+    if geocoded_municipality in municipalities:
+        return geocoded_municipality
+
+    # Normalisera namn
+    geocoded_normalized = (
+        geocoded_municipality
+        .lower()
+        .replace(" kommun", "")
+        .replace(" stad", "")
+        .strip()
+    )
+
+    for municipality in municipalities:
+
+        municipality_normalized = (
+            municipality
+            .lower()
+            .replace(" kommun", "")
+            .replace(" stad", "")
+            .strip()
+        )
+
+        if municipality_normalized == geocoded_normalized:
+            return municipality
+
+    return None
 
 
 # =========================
 # MODELLER
 # =========================
+
+@st.cache_resource
+def load_bundle(path: Path) -> dict:
+    return load_model_bundle(path)
+
 
 model_paths = {
     "APARTMENT": MODELS_DIR / "apartment_random_forest.joblib",
@@ -43,13 +138,16 @@ model_paths = {
 }
 
 
-# Ladda alla modeller när appen startar
 models = {
     typology: load_bundle(path)
     for typology, path in model_paths.items()
 }
 
-# MAE för respektive modell
+
+# =========================
+# MAE
+# =========================
+
 mae_values = {
     "APARTMENT": 451436,
     "HOUSE": 1125795,
@@ -69,6 +167,16 @@ if "longitude" not in st.session_state:
 
 
 # =========================
+# KOMMUNER
+# =========================
+
+municipalities = get_municipalities()
+
+if "selected_municipality" not in st.session_state:
+    st.session_state.selected_municipality = municipalities[0]
+
+
+# =========================
 # KOLUMN-LAYOUT
 # =========================
 
@@ -83,14 +191,26 @@ with form_column:
 
     with st.form("prediction_form"):
 
+        typology_labels = {
+            "APARTMENT": "Lägenhet",
+            "HOUSE": "Villa",
+            "ROW_HOUSE": "Radhus",
+        }
+
         typology = st.selectbox(
             "Bostadstyp",
-            ["APARTMENT", "HOUSE", "ROW_HOUSE"]
+            list(typology_labels.keys()),
+            format_func=lambda x: typology_labels[x]
+        )
+
+        municipality_index = municipalities.index(
+            st.session_state.selected_municipality
         )
 
         municipality = st.selectbox(
             "Kommun",
-            get_municipalities()
+            municipalities,
+            index=municipality_index
         )
 
         living_area = st.number_input(
@@ -117,6 +237,10 @@ with form_column:
         submitted = st.form_submit_button(
             "Beräkna pris"
         )
+
+
+# Spara manuellt vald kommun
+st.session_state.selected_municipality = municipality
 
 
 # =========================
@@ -157,10 +281,36 @@ with map_column:
         returned_objects=["last_clicked"]
     )
 
-    if map_data["last_clicked"]:
-        st.session_state.latitude = map_data["last_clicked"]["lat"]
-        st.session_state.longitude = map_data["last_clicked"]["lng"]
+    # =========================
+    # KARTKLICK
+    # =========================
 
+    if map_data["last_clicked"]:
+
+        new_latitude = map_data["last_clicked"]["lat"]
+        new_longitude = map_data["last_clicked"]["lng"]
+
+        st.session_state.latitude = new_latitude
+        st.session_state.longitude = new_longitude
+
+        # Hämta kommun från koordinaterna
+        geocoded_municipality = get_municipality_from_coordinates(
+            new_latitude,
+            new_longitude
+        )
+
+        matched_municipality = match_municipality(
+            geocoded_municipality,
+            municipalities
+        )
+
+        if matched_municipality:
+
+            st.session_state.selected_municipality = (
+                matched_municipality
+            )
+
+            st.rerun()
 
 
 # =========================
@@ -204,28 +354,69 @@ if submitted:
     lower_price = max(0, prediction - mae)
     upper_price = prediction + mae
 
-    # Visa resultat
-    st.markdown(
+    # =========================
+    # RESULTAT
+    # =========================
+
+    st.html(
         f"""
-        <div style="font-size: 32px; font-weight: bold;">
-            🏠 Uppskattat utgångspris
+        <div id="resultat" style="
+            background-color: #f1f5f9;
+            border-radius: 12px;
+            padding: 28px;
+            margin-top: 25px;
+            text-align: center;
+            border: 1px solid #dbe2ea;
+        ">
+
+            <div style="
+                font-size: 22px;
+                font-weight: 600;
+                margin-bottom: 10px;
+            ">
+                🏠 Uppskattat utgångspris
+            </div>
+
+            <div style="
+                font-size: 42px;
+                font-weight: 700;
+                margin-bottom: 20px;
+            ">
+                {prediction:,.0f} kr
+            </div>
+
+            <div style="
+                font-size: 17px;
+                margin-bottom: 6px;
+            ">
+                Ungefärligt prisintervall
+            </div>
+
+            <div style="
+                font-size: 25px;
+                font-weight: 600;
+            ">
+                {lower_price:,.0f} – {upper_price:,.0f} kr
+            </div>
+
+            <div style="
+                font-size: 14px;
+                margin-top: 14px;
+                opacity: 0.7;
+            ">
+                Modellens genomsnittliga fel: ± {mae:,.0f} kr
+            </div>
+
         </div>
 
-        <div style="font-size: 36px; font-weight: bold; margin-top: 8px;">
-            {prediction:,.0f} kr
-        </div>
-
-        <div style="font-size: 20px; margin-top: 16px;">
-            Ungefärligt intervall:
-        </div>
-
-        <div style="font-size: 24px; font-weight: bold;">
-            {lower_price:,.0f} – {upper_price:,.0f} kr
-        </div>
-
-        <div style="font-size: 16px; margin-top: 8px;">
-            Modellens genomsnittliga fel: ± {mae:,.0f} kr
-        </div>
-        """.replace(",", " "),
-        unsafe_allow_html=True
+        <script>
+            setTimeout(function() {{
+                document.getElementById("resultat").scrollIntoView({{
+                    behavior: "smooth",
+                    block: "center"
+                }});
+            }}, 200);
+        </script>
+        """,
+        unsafe_allow_javascript=True
     )

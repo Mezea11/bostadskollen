@@ -4,7 +4,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent
 
 st.set_page_config(
-    page_title="Bostadskollen",
+    page_title="Boprisindikatorn",
     page_icon="🏠"
 )
 
@@ -59,13 +59,11 @@ pg = st.navigation(
 )
 
 with st.sidebar:
-    st.title("🏠 Bostadskollen")
+    st.title("🏠 Boprisindikatorn")
     st.write(
         "Uppskatta en bostads utgångspris med en modell tränad i notebooken."
     )
-    st.write(
-        "Observera att träningsdatan inte har kunnat verifieras och att modellens resultat därför inte bör betraktas som tillförlitligt."
-    )
+
     st.divider()
 
     st.page_link(
