@@ -4,14 +4,31 @@ import joblib
 
 
 def load_model_bundle(path: str | Path) -> dict:
-    """Ladda modellen och dess feature-kolumner fran notebooken."""
+    """Ladda pipeline, metrics och metadata från en modellfil."""
+
     bundle = joblib.load(path)
 
     if not isinstance(bundle, dict):
-        raise ValueError("Modellfilen maste innehalla en dictionary.")
+        raise ValueError(
+            "Modellfilen måste innehålla en dictionary."
+        )
 
-    if "model" not in bundle or "feature_columns" not in bundle:
-        raise ValueError("Modellfilen saknar 'model' eller 'feature_columns'.")
+    required_keys = {
+        "pipeline",
+        "metrics",
+        "metadata"
+    }
+
+    missing_keys = required_keys - bundle.keys()
+
+    if missing_keys:
+        raise ValueError(
+            f"Modellfilen saknar: {sorted(missing_keys)}"
+        )
+
+    if not hasattr(bundle["pipeline"], "predict"):
+        raise ValueError(
+            "Modellfilens pipeline saknar predict()."
+        )
 
     return bundle
-
