@@ -136,12 +136,6 @@ model_paths = {
 }
 
 
-models = {
-    typology: load_bundle(path)
-    for typology, path in model_paths.items()
-}
-
-
 # =========================
 # STANDARDKOORDINATER
 # =========================
@@ -302,8 +296,10 @@ with map_column:
 
 if submitted:
 
-    # Välj redan laddad modellbundle
-    bundle = models[typology]
+    # Ladda den modell som användaren har valt
+    bundle = load_bundle(model_paths[typology])
+
+    # Välj pipeline från modellbundle
     pipeline = bundle["pipeline"]
 
     # Samla användarens input
