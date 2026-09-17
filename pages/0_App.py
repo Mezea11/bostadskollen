@@ -241,16 +241,11 @@ with map_column:
             st.session_state.latitude,
             st.session_state.longitude
         ],
-        zoom_start=5,
+        zoom_start=10,
         min_zoom=4,
         max_bounds=True,
         max_bounds_viscosity=1.0
     )
-
-    m.fit_bounds([
-        [55.0, 10.5],
-        [69.1, 24.2]
-    ])
 
     # Markör på vald position
     folium.Marker(
