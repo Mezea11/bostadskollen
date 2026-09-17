@@ -253,7 +253,8 @@ with map_column:
             st.session_state.latitude,
             st.session_state.longitude
         ],
-        tooltip="Vald position"
+        tooltip="Vald position",
+        icon=folium.Icon(icon="home")
     ).add_to(m)
 
     map_data = st_folium(
