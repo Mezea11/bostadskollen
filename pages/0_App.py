@@ -1,16 +1,13 @@
-from pathlib import Path
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
-import json
-
-import pandas as pd
-import streamlit as st
-import folium
-from streamlit_folium import st_folium
-
-from src.model_loader import load_model_bundle
-from src.preprocessing import prepare_input
 from src.schemas import HousingInput
+from src.model_loader import load_model_bundle
+from streamlit_folium import st_folium
+import folium
+import streamlit as st
+import pandas as pd
+import json
+from urllib.request import Request, urlopen
+from urllib.parse import urlencode
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -133,26 +130,15 @@ def load_bundle(path: Path) -> dict:
 
 
 model_paths = {
-    "APARTMENT": MODELS_DIR / "apartment_random_forest.joblib",
-    "HOUSE": MODELS_DIR / "house_random_forest.joblib",
-    "ROW_HOUSE": MODELS_DIR / "row_house_random_forest.joblib",
+    "APARTMENT": MODELS_DIR / "apartment_model.joblib",
+    "HOUSE": MODELS_DIR / "global_model.joblib",
+    "ROW_HOUSE": MODELS_DIR / "global_model.joblib",
 }
 
 
 models = {
     typology: load_bundle(path)
     for typology, path in model_paths.items()
-}
-
-
-# =========================
-# MAE
-# =========================
-
-mae_values = {
-    "APARTMENT": 451436,
-    "HOUSE": 1125795,
-    "ROW_HOUSE": 758833,
 }
 
 
@@ -320,11 +306,9 @@ with map_column:
 
 if submitted:
 
-    # Välj redan laddad modell
+    # Välj redan laddad modellbundle
     bundle = models[typology]
-
-    model = bundle["model"]
-    feature_columns = bundle["feature_columns"]
+    pipeline = bundle["pipeline"]
 
     # Samla användarens input
     housing_input = HousingInput(
@@ -337,22 +321,33 @@ if submitted:
         longitude=st.session_state.longitude,
     )
 
-    # Omvandla Pydantic-modellen till dictionary
+    # Omvandla Pydantic-modellen till en dictionary
     user_input = housing_input.model_dump()
 
-    # Förbered input för modellen
-    model_input = prepare_input(
-        user_input,
-        feature_columns
-    )
+    # Samma tomtlogik som användes i modellträningen
+    user_input["has_land_area"] = int(land_area > 0)
+
+    if typology == "APARTMENT":
+        user_input["land_area_sqm"] = None
+
+    if typology == "HOUSE" and land_area < 50:
+        user_input["land_area_sqm"] = None
+
+    # Pipelinen tar hand om imputering och one-hot encoding
+    model_input = pd.DataFrame([user_input])
 
     # Gör prediktion
     prediction = float(
-        model.predict(model_input)[0]
+        pipeline.predict(model_input)[0]
     )
 
-    # Hämta MAE för vald modell
-    mae = mae_values[typology]
+    # Hämta MAE från samma modell som gjorde prediktionen
+    if typology == "APARTMENT":
+        mae = float(bundle["metrics"]["mae"])
+    else:
+        mae = float(
+            bundle["metrics_by_segment"][typology]["mae"]
+        )
 
     # Beräkna prisintervall
     lower_price = max(0, prediction - mae)

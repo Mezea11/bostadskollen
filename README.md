@@ -32,25 +32,65 @@ source .venv/Scripts/activate
 uv pip install -r requirements.txt
 ```
 
-## Spara modeller från notebooken
+## Träna och spara modeller
 
-Kör detta efter att respektive modell har tränats. Använd modellens egna
-X-kolumner, exempelvis `X_global.columns` för den globala modellen.
+Modellerna tränas i:
+
+```text
+notebooks/model_training.ipynb
+```
+
+Kör samtliga celler i notebooken för att skapa modellfilerna:
+
+```text
+models/global_model.joblib
+models/apartment_model.joblib
+models/house_model.joblib
+models/row_house_model.joblib
+```
+
+Varje modellfil innehåller en komplett bundle:
 
 ```python
-from pathlib import Path
-import joblib
-
-Path("../models").mkdir(exist_ok=True)
-
-joblib.dump(
-    {
-        "model": rf_global,
-        "feature_columns": X_global.columns.tolist(),
+{
+    "pipeline": trained_pipeline,
+    "metrics": {
+        "mae": ...,
+        "rmse": ...,
+        "median_error": ...,
+        "r2": ...
     },
-    "../models/global_random_forest.joblib",
-)
+    "metadata": {
+        "segment": ...,
+        "model_name": ...,
+        "training_rows": ...,
+        "test_rows": ...,
+        "feature_columns": ...,
+        "target": "asking_price_sek",
+        "price_min": 100_000,
+        "price_max": 10_000_000,
+        "random_state": 42,
+        "data_file": "SwedenHousingPrices.csv",
+        "sklearn_version": ...
+    }
+}
 ```
+
+Globalmodellen innehåller dessutom testmetrics per bostadstyp:
+
+```python
+{
+    "metrics_by_segment": {
+        "APARTMENT": {...},
+        "HOUSE": {...},
+        "ROW_HOUSE": {...}
+    }
+}
+```
+
+Pipelinen innehåller både preprocessing och den tränade modellen. Streamlit-appen skickar därför rå formulärdata direkt till pipelinen.
+
+Modellfilerna genereras lokalt och sparas inte i Git.
 
 För en specialiserad modell byter ni bara modellvariabel, feature-lista och
 filnamn. Inga modeller eller hyperparametrar definieras av boilerplaten.
@@ -63,4 +103,3 @@ python -m streamlit run app.py
 
 Hypotesanalysen och modellträningen görs i notebooken. Streamlit-sidorna i
 `pages/` används endast för den interaktiva presentationen.
-
