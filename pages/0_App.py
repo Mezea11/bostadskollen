@@ -136,12 +136,6 @@ model_paths = {
 }
 
 
-models = {
-    typology: load_bundle(path)
-    for typology, path in model_paths.items()
-}
-
-
 # =========================
 # STANDARDKOORDINATER
 # =========================
@@ -241,16 +235,11 @@ with map_column:
             st.session_state.latitude,
             st.session_state.longitude
         ],
-        zoom_start=5,
+        zoom_start=10,
         min_zoom=4,
         max_bounds=True,
         max_bounds_viscosity=1.0
     )
-
-    m.fit_bounds([
-        [55.0, 10.5],
-        [69.1, 24.2]
-    ])
 
     # Markör på vald position
     folium.Marker(
@@ -258,7 +247,8 @@ with map_column:
             st.session_state.latitude,
             st.session_state.longitude
         ],
-        tooltip="Vald position"
+        tooltip="Vald position",
+        icon=folium.Icon(icon="home")
     ).add_to(m)
 
     map_data = st_folium(
@@ -306,8 +296,10 @@ with map_column:
 
 if submitted:
 
-    # Välj redan laddad modellbundle
-    bundle = models[typology]
+    # Ladda den modell som användaren har valt
+    bundle = load_bundle(model_paths[typology])
+
+    # Välj pipeline från modellbundle
     pipeline = bundle["pipeline"]
 
     # Samla användarens input
