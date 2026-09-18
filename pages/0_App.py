@@ -1,16 +1,25 @@
 from src.schemas import HousingInput
 from src.model_loader import load_model_bundle
+
 from streamlit_folium import st_folium
+from streamlit_searchbox import st_searchbox
+
 import folium
 import streamlit as st
 import pandas as pd
 import json
+
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 from pathlib import Path
 
 
+# =========================
+# SÖKVÄGAR
+# =========================
+
 ROOT = Path(__file__).resolve().parent.parent
+
 DATA_PATH = ROOT / "data" / "SwedenHousingPrices.csv"
 MODELS_DIR = ROOT / "models"
 
@@ -21,7 +30,14 @@ MODELS_DIR = ROOT / "models"
 
 @st.cache_data
 def get_municipalities() -> list[str]:
-    df = pd.read_csv(DATA_PATH, encoding="utf-8-sig")
+    """
+    Läser in alla kommuner från datasetet.
+    """
+
+    df = pd.read_csv(
+        DATA_PATH,
+        encoding="utf-8-sig"
+    )
 
     return sorted(
         df["location"]
@@ -33,7 +49,116 @@ def get_municipalities() -> list[str]:
 
 
 # =========================
+# ADRESSÖKNING MED PHOTON
+# =========================
+
+@st.cache_data(ttl=3600)
+def search_address(address: str) -> list[dict]:
+    """
+    Söker efter adresser i Sverige med Photon.
+    """
+
+    if not isinstance(address, str):
+        return []
+
+    if not address.strip():
+        return []
+
+    params = urlencode({
+        "q": address,
+        "countrycode": "SE",
+        "limit": 5,
+    })
+
+    url = f"https://photon.komoot.io/api/?{params}"
+
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "Bostadskollen/1.0"
+        }
+    )
+
+    try:
+
+        with urlopen(
+            request,
+            timeout=5
+        ) as response:
+
+            data = json.loads(
+                response.read().decode("utf-8")
+            )
+
+        results = []
+
+        for feature in data.get(
+            "features",
+            []
+        ):
+
+            properties = feature.get(
+                "properties",
+                {}
+            )
+
+            coordinates = feature.get(
+                "geometry",
+                {}
+            ).get(
+                "coordinates",
+                []
+            )
+
+            if len(coordinates) != 2:
+                continue
+
+            longitude, latitude = coordinates
+
+            results.append({
+                "name": properties.get(
+                    "name",
+                    ""
+                ),
+
+                "street": properties.get(
+                    "street",
+                    ""
+                ),
+
+                "housenumber": properties.get(
+                    "housenumber",
+                    ""
+                ),
+
+                "postcode": properties.get(
+                    "postcode",
+                    ""
+                ),
+
+                "city": properties.get(
+                    "city",
+                    ""
+                ),
+
+                "latitude": latitude,
+                "longitude": longitude,
+            })
+
+        return results
+
+    except Exception as error:
+
+        st.error(
+            f"Fel vid adressökning: {error}"
+        )
+
+        return []
+
+
+# =========================
 # REVERSE GEOCODING
+# KOMMUN
 # =========================
 
 @st.cache_data(ttl=86400)
@@ -41,6 +166,10 @@ def get_municipality_from_coordinates(
     latitude: float,
     longitude: float
 ) -> str | None:
+    """
+    Hämtar kommunen från koordinater
+    med hjälp av Nominatim.
+    """
 
     params = urlencode({
         "lat": latitude,
@@ -51,24 +180,37 @@ def get_municipality_from_coordinates(
         "zoom": 10,
     })
 
-    url = f"https://nominatim.openstreetmap.org/reverse?{params}"
+    url = (
+        "https://nominatim.openstreetmap.org/"
+        f"reverse?{params}"
+    )
 
     request = Request(
         url,
         headers={
-            "User-Agent": "Bostadskollen/1.0"
+            "User-Agent": "Boprisindikatorn/1.0"
         }
     )
 
     try:
-        with urlopen(request, timeout=5) as response:
+
+        with urlopen(
+            request,
+            timeout=5
+        ) as response:
+
             data = json.loads(
                 response.read().decode("utf-8")
             )
 
-        address = data.get("address", {})
+        address = data.get(
+            "address",
+            {}
+        )
 
-        municipality = address.get("municipality")
+        municipality = address.get(
+            "municipality"
+        )
 
         if municipality:
             return municipality
@@ -80,13 +222,117 @@ def get_municipality_from_coordinates(
         )
 
     except Exception:
+
         return None
 
+
+# =========================
+# REVERSE GEOCODING
+# ADRESS
+# =========================
+
+@st.cache_data(ttl=86400)
+def get_address_from_coordinates(
+    latitude: float,
+    longitude: float
+) -> str | None:
+    """
+    Hämtar en adress från koordinater
+    med hjälp av Nominatim.
+    """
+
+    params = urlencode({
+        "lat": latitude,
+        "lon": longitude,
+        "format": "jsonv2",
+        "addressdetails": 1,
+        "accept-language": "sv",
+        "zoom": 18,
+    })
+
+    url = (
+        "https://nominatim.openstreetmap.org/"
+        f"reverse?{params}"
+    )
+
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "Bostadskollen/1.0"
+        }
+    )
+
+    try:
+
+        with urlopen(
+            request,
+            timeout=5
+        ) as response:
+
+            data = json.loads(
+                response.read().decode("utf-8")
+            )
+
+        address = data.get(
+            "address",
+            {}
+        )
+
+        road = address.get(
+            "road",
+            ""
+        )
+
+        house_number = address.get(
+            "house_number",
+            ""
+        )
+
+        postcode = address.get(
+            "postcode",
+            ""
+        )
+
+        city = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or ""
+        )
+
+        parts = [
+            road,
+            house_number,
+            postcode,
+            city,
+        ]
+
+        result = " ".join(
+            part
+            for part in parts
+            if part
+        )
+
+        return result or None
+
+    except Exception:
+
+        return None
+
+
+# =========================
+# MATCHA KOMMUN
+# =========================
 
 def match_municipality(
     geocoded_municipality: str | None,
     municipalities: list[str]
 ) -> str | None:
+    """
+    Matchar kommunen från geocoding-resultatet
+    mot kommunerna som finns i datasetet.
+    """
 
     if not geocoded_municipality:
         return None
@@ -95,7 +341,7 @@ def match_municipality(
     if geocoded_municipality in municipalities:
         return geocoded_municipality
 
-    # Normalisera namn
+    # Normalisera kommunnamnet
     geocoded_normalized = (
         geocoded_municipality
         .lower()
@@ -114,7 +360,10 @@ def match_municipality(
             .strip()
         )
 
-        if municipality_normalized == geocoded_normalized:
+        if (
+            municipality_normalized
+            == geocoded_normalized
+        ):
             return municipality
 
     return None
@@ -126,13 +375,23 @@ def match_municipality(
 
 @st.cache_resource
 def load_bundle(path: Path) -> dict:
+    """
+    Laddar en modellbundle och cachar den.
+    """
+
     return load_model_bundle(path)
 
 
 model_paths = {
-    "APARTMENT": MODELS_DIR / "apartment_model.joblib",
-    "HOUSE": MODELS_DIR / "global_model.joblib",
-    "ROW_HOUSE": MODELS_DIR / "global_model.joblib",
+
+    "APARTMENT":
+        MODELS_DIR / "apartment_model.joblib",
+
+    "HOUSE":
+        MODELS_DIR / "global_model.joblib",
+
+    "ROW_HOUSE":
+        MODELS_DIR / "global_model.joblib",
 }
 
 
@@ -141,10 +400,41 @@ model_paths = {
 # =========================
 
 if "latitude" not in st.session_state:
+
     st.session_state.latitude = 55.610181
 
+
 if "longitude" not in st.session_state:
+
     st.session_state.longitude = 12.977890
+
+
+# =========================
+# KARTANS CENTRUM
+# =========================
+
+if "map_center_latitude" not in st.session_state:
+
+    st.session_state.map_center_latitude = 55.610181
+
+
+if "map_center_longitude" not in st.session_state:
+
+    st.session_state.map_center_longitude = 12.977890
+
+
+# =========================
+# ADRESS SEARCHBOX STATE
+# =========================
+
+if "address_search_version" not in st.session_state:
+
+    st.session_state.address_search_version = 0
+
+
+if "map_address" not in st.session_state:
+
+    st.session_state.map_address = ""
 
 
 # =========================
@@ -153,15 +443,21 @@ if "longitude" not in st.session_state:
 
 municipalities = get_municipalities()
 
+
 if "selected_municipality" not in st.session_state:
-    st.session_state.selected_municipality = municipalities[0]
+
+    st.session_state.selected_municipality = (
+        municipalities[0]
+    )
 
 
 # =========================
 # KOLUMN-LAYOUT
 # =========================
 
-form_column, map_column = st.columns([1, 1])
+form_column, map_column = st.columns(
+    [1, 1]
+)
 
 
 # =========================
@@ -170,58 +466,274 @@ form_column, map_column = st.columns([1, 1])
 
 with form_column:
 
-    with st.form("prediction_form"):
+    # =========================
+    # ADRESSÖKNING
+    # =========================
+
+    def address_search_function(
+        searchterm: str
+    ) -> list[tuple[str, dict]]:
+        """
+        Funktion som används av st_searchbox.
+
+        Returnerar:
+            (text som visas, data som returneras)
+        """
+
+        if not isinstance(
+            searchterm,
+            str
+        ):
+            return []
+
+        if (
+            not searchterm
+            or len(searchterm.strip()) < 3
+        ):
+            return []
+
+        results = search_address(
+            searchterm
+        )
+
+        suggestions = []
+
+        for result in results:
+
+            parts = [
+                result["street"],
+                result["housenumber"],
+                result["postcode"],
+                result["city"],
+            ]
+
+            label = " ".join(
+                part
+                for part in parts
+                if part
+            )
+
+            if label:
+
+                suggestions.append(
+                    (
+                        label,
+                        {
+                            "latitude":
+                                result["latitude"],
+
+                            "longitude":
+                                result["longitude"],
+                        }
+                    )
+                )
+
+        return suggestions
+
+
+    # =========================
+    # ADRESS SEARCHBOX
+    # =========================
+
+    address_search_key = (
+        f"address_search_"
+        f"{st.session_state.address_search_version}"
+    )
+
+    address = st_searchbox(
+        address_search_function,
+
+        placeholder="Skriv en adress...",
+
+        label="Adress",
+
+        key=address_search_key,
+
+        debounce=300,
+
+        default_searchterm=(
+            st.session_state.map_address
+        )
+    )
+
+
+    # =========================
+    # VALD ADRESS
+    # =========================
+
+    if isinstance(address, dict):
+
+        new_latitude = address[
+            "latitude"
+        ]
+
+        new_longitude = address[
+            "longitude"
+        ]
+
+        position_changed = (
+            st.session_state.latitude
+            != new_latitude
+            or
+            st.session_state.longitude
+            != new_longitude
+        )
+
+        if position_changed:
+
+            # Uppdatera pinnens position.
+
+            st.session_state.latitude = (
+                new_latitude
+            )
+
+            st.session_state.longitude = (
+                new_longitude
+            )
+
+
+            # =========================
+            # FLYTTA KARTANS CENTRUM
+            # VID ADRESSÖKNING
+            # =========================
+
+            st.session_state.map_center_latitude = (
+                new_latitude
+            )
+
+            st.session_state.map_center_longitude = (
+                new_longitude
+            )
+
+
+            # =========================
+            # HÄMTA KOMMUN
+            # =========================
+
+            geocoded_municipality = (
+                get_municipality_from_coordinates(
+                    new_latitude,
+                    new_longitude
+                )
+            )
+
+
+            matched_municipality = (
+                match_municipality(
+                    geocoded_municipality,
+                    municipalities
+                )
+            )
+
+
+            if matched_municipality:
+
+                st.session_state.selected_municipality = (
+                    matched_municipality
+                )
+
+
+            # Nollställ eventuell
+            # gammal kartadress.
+
+            st.session_state.map_address = ""
+
+            st.rerun()
+
+
+    # =========================
+    # PREDIKTIONSFORMULÄR
+    # =========================
+
+    with st.form(
+        "prediction_form"
+    ):
 
         typology_labels = {
-            "APARTMENT": "Lägenhet",
-            "HOUSE": "Villa",
-            "ROW_HOUSE": "Radhus",
+
+            "APARTMENT":
+                "Lägenhet",
+
+            "HOUSE":
+                "Villa",
+
+            "ROW_HOUSE":
+                "Radhus",
         }
 
+
+        # =========================
+        # BOSTADSTYP
+        # =========================
+
         typology = st.selectbox(
+
             "Bostadstyp",
-            list(typology_labels.keys()),
-            format_func=lambda x: typology_labels[x]
+
+            list(
+                typology_labels.keys()
+            ),
+
+            format_func=lambda x:
+                typology_labels[x]
         )
 
-        municipality_index = municipalities.index(
-            st.session_state.selected_municipality
-        )
 
-        municipality = st.selectbox(
-            "Kommun",
-            municipalities,
-            index=municipality_index
-        )
+        # =========================
+        # BOAREA
+        # =========================
 
         living_area = st.number_input(
+
             "Boarea (m²)",
+
             min_value=1,
+
             value=80,
+
             step=1
         )
 
+
+        # =========================
+        # TOMTAREA
+        # =========================
+
         land_area = st.number_input(
+
             "Tomtarea (m²)",
+
             min_value=0,
+
             value=0,
+
             step=10
         )
 
+
+        # =========================
+        # ANTAL RUM
+        # =========================
+
         number_rooms = st.number_input(
+
             "Antal rum",
+
             min_value=1,
+
             value=3,
+
             step=1
         )
+
+
+        # =========================
+        # BERÄKNA PRIS
+        # =========================
 
         submitted = st.form_submit_button(
             "Beräkna pris"
         )
-
-
-# Spara manuellt vald kommun
-st.session_state.selected_municipality = municipality
 
 
 # =========================
@@ -230,56 +742,148 @@ st.session_state.selected_municipality = municipality
 
 with map_column:
 
+    # Kartan använder sitt eget centrum.
+    #
+    # Det betyder att ett kartklick
+    # inte flyttar kartans vy.
+
     m = folium.Map(
+
         location=[
-            st.session_state.latitude,
-            st.session_state.longitude
+            st.session_state.map_center_latitude,
+            st.session_state.map_center_longitude
         ],
-        zoom_start=10,
-        min_zoom=4,
-        max_bounds=True,
-        max_bounds_viscosity=1.0
+
+        #zoom_start=10,
+
+        #min_zoom=4,
+
+        #max_bounds=True,
+
+        #max_bounds_viscosity=1.0
     )
 
-    # Markör på vald position
+
+    # =========================
+    # MARKÖR
+    # =========================
+
     folium.Marker(
+
         location=[
+
             st.session_state.latitude,
+
             st.session_state.longitude
         ],
+
         tooltip="Vald position",
-        icon=folium.Icon(icon="home")
+
+        icon=folium.Icon(
+            icon="home"
+        )
+
     ).add_to(m)
 
+
+    # =========================
+    # VISA KARTA
+    # =========================
+
     map_data = st_folium(
+
         m,
+
         width=250,
+
         height=470,
-        returned_objects=["last_clicked"]
+
+        returned_objects=[
+            "last_clicked",
+            "center"
+        ]
     )
+
 
     # =========================
     # KARTKLICK
     # =========================
 
-    if map_data["last_clicked"]:
+    if map_data.get("last_clicked"):
 
-        new_latitude = map_data["last_clicked"]["lat"]
-        new_longitude = map_data["last_clicked"]["lng"]
+        new_latitude = (
+            map_data["last_clicked"]["lat"]
+        )
 
-        st.session_state.latitude = new_latitude
-        st.session_state.longitude = new_longitude
+        new_longitude = (
+            map_data["last_clicked"]["lng"]
+        )
 
-        # Hämta kommun från koordinaterna
-        geocoded_municipality = get_municipality_from_coordinates(
-            new_latitude,
+
+        # =========================
+        # SPARA PINNENS POSITION
+        # =========================
+
+        st.session_state.latitude = (
+            new_latitude
+        )
+
+        st.session_state.longitude = (
             new_longitude
         )
 
-        matched_municipality = match_municipality(
-            geocoded_municipality,
-            municipalities
+
+        # =========================
+        # SPARA KARTANS NUVARANDE
+        # CENTRUM
+        # =========================
+
+        if map_data.get("center"):
+
+            st.session_state.map_center_latitude = (
+                map_data["center"]["lat"]
+            )
+
+            st.session_state.map_center_longitude = (
+                map_data["center"]["lng"]
+            )
+
+
+        # =========================
+        # HÄMTA ADRESS
+        # =========================
+
+        clicked_address = (
+            get_address_from_coordinates(
+                new_latitude,
+                new_longitude
+            )
         )
+
+
+        # =========================
+        # HÄMTA KOMMUN
+        # =========================
+
+        geocoded_municipality = (
+            get_municipality_from_coordinates(
+                new_latitude,
+                new_longitude
+            )
+        )
+
+
+        # =========================
+        # MATCHA KOMMUN
+        # =========================
+
+        matched_municipality = (
+            match_municipality(
+                geocoded_municipality,
+                municipalities
+            )
+        )
+
 
         if matched_municipality:
 
@@ -287,7 +891,29 @@ with map_column:
                 matched_municipality
             )
 
-            st.rerun()
+
+        # =========================
+        # FYLL ADRESSFÄLTET
+        # =========================
+
+        if clicked_address:
+
+            st.session_state.map_address = (
+                clicked_address
+            )
+
+            st.session_state.address_search_version += 1
+
+        else:
+
+            st.session_state.map_address = ""
+
+
+        # =========================
+        # RITA OM SIDAN
+        # =========================
+
+        st.rerun()
 
 
 # =========================
@@ -296,60 +922,164 @@ with map_column:
 
 if submitted:
 
-    # Ladda den modell som användaren har valt
-    bundle = load_bundle(model_paths[typology])
+    # =========================
+    # LADDA VALD MODELL
+    # =========================
 
-    # Välj pipeline från modellbundle
-    pipeline = bundle["pipeline"]
+    bundle = load_bundle(
+        model_paths[typology]
+    )
 
-    # Samla användarens input
+
+    # =========================
+    # PIPELINE
+    # =========================
+
+    pipeline = bundle[
+        "pipeline"
+    ]
+
+
+    # =========================
+    # VALIDERING MED PYDANTIC
+    # =========================
+
     housing_input = HousingInput(
+
         typology=typology,
-        municipality=municipality,
+
+        municipality=(
+            st.session_state.selected_municipality
+        ),
+
         land_area_sqm=land_area,
+
         living_area_sqm=living_area,
+
         number_rooms=number_rooms,
+
         latitude=st.session_state.latitude,
+
         longitude=st.session_state.longitude,
     )
 
-    # Omvandla Pydantic-modellen till en dictionary
-    user_input = housing_input.model_dump()
 
-    # Samma tomtlogik som användes i modellträningen
-    user_input["has_land_area"] = int(land_area > 0)
+    # =========================
+    # OMVANDLA TILL DICTIONARY
+    # =========================
 
-    if typology == "APARTMENT":
-        user_input["land_area_sqm"] = None
-
-    if typology == "HOUSE" and land_area < 50:
-        user_input["land_area_sqm"] = None
-
-    # Pipelinen tar hand om imputering och one-hot encoding
-    model_input = pd.DataFrame([user_input])
-
-    # Gör prediktion
-    prediction = float(
-        pipeline.predict(model_input)[0]
+    user_input = (
+        housing_input.model_dump()
     )
 
-    # Hämta MAE från samma modell som gjorde prediktionen
+
+    # =========================
+    # TOMTLOGIK
+    # =========================
+
+    user_input[
+        "has_land_area"
+    ] = int(
+        land_area > 0
+    )
+
+
+    # Lägenheter har ingen relevant
+    # tomtarea.
+
     if typology == "APARTMENT":
-        mae = float(bundle["metrics"]["mae"])
-    else:
+
+        user_input[
+            "land_area_sqm"
+        ] = None
+
+
+    # För villor används tomtarea endast
+    # om den är minst 50 m².
+
+    if (
+        typology == "HOUSE"
+        and land_area < 50
+    ):
+
+        user_input[
+            "land_area_sqm"
+        ] = None
+
+
+    # =========================
+    # SKAPA MODELLINPUT
+    # =========================
+
+    model_input = pd.DataFrame(
+        [user_input]
+    )
+
+
+    # =========================
+    # GÖR PREDIKTION
+    # =========================
+
+    prediction = float(
+
+        pipeline.predict(
+            model_input
+        )[0]
+    )
+
+
+    # =========================
+    # HÄMTA MAE
+    # =========================
+
+    if typology == "APARTMENT":
+
         mae = float(
-            bundle["metrics_by_segment"][typology]["mae"]
+
+            bundle[
+                "metrics"
+            ][
+                "mae"
+            ]
         )
 
-    # Beräkna prisintervall
-    lower_price = max(0, prediction - mae)
-    upper_price = prediction + mae
+    else:
+
+        mae = float(
+
+            bundle[
+                "metrics_by_segment"
+            ][
+                typology
+            ][
+                "mae"
+            ]
+        )
+
+
+    # =========================
+    # PRISINTERVALL
+    # =========================
+
+    lower_price = max(
+
+        0,
+
+        prediction - mae
+    )
+
+    upper_price = (
+
+        prediction + mae
+    )
+
 
     # =========================
     # RESULTAT
     # =========================
 
     st.html(
+
         f"""
         <div id="result" style="
             border-radius: 12px;
@@ -367,6 +1097,7 @@ if submitted:
                 🏠 Uppskattat utgångspris
             </div>
 
+
             <div style="
                 font-size: 42px;
                 font-weight: 700;
@@ -375,6 +1106,7 @@ if submitted:
                 {prediction:,.0f} kr
             </div>
 
+
             <div style="
                 font-size: 17px;
                 margin-bottom: 6px;
@@ -382,31 +1114,44 @@ if submitted:
                 Ungefärligt prisintervall
             </div>
 
+
             <div style="
                 font-size: 25px;
                 font-weight: 600;
             ">
-                {lower_price:,.0f} – {upper_price:,.0f} kr
+                {lower_price:,.0f}
+                –
+                {upper_price:,.0f} kr
             </div>
+
 
             <div style="
                 font-size: 14px;
                 margin-top: 14px;
                 opacity: 0.7;
             ">
-                Modellens genomsnittliga fel: ± {mae:,.0f} kr
+                Modellens genomsnittliga fel:
+                ± {mae:,.0f} kr
             </div>
 
         </div>
 
+
         <script>
+
             setTimeout(function() {{
-                document.getElementById("result").scrollIntoView({{
-                    behavior: "smooth",
-                    block: "center"
-                }});
+
+                document
+                    .getElementById("result")
+                    .scrollIntoView({{
+                        behavior: "smooth",
+                        block: "center"
+                    }});
+
             }}, 200);
+
         </script>
         """,
+
         unsafe_allow_javascript=True
     )
