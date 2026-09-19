@@ -17,6 +17,55 @@ def format_price(price):
 
 
 # =========================
+# KONTROLLERA NYA PREDIKTIONER
+# =========================
+
+@st.fragment(run_every="1s")
+def check_for_new_predictions():
+
+    # Hämta den senaste prediktionen från databasen.
+    # Detta förutsätter att get_predictions(1) returnerar
+    # den senaste posten först.
+
+    rows, columns = get_predictions(1)
+
+    if not rows:
+        latest_timestamp = None
+
+    else:
+        latest_prediction = dict(
+            zip(columns, rows[0])
+        )
+
+        latest_timestamp = latest_prediction.get(
+            "timestamp"
+        )
+
+    # Spara den senaste kända tidsstämpeln första gången.
+    if "latest_prediction_timestamp" not in st.session_state:
+
+        st.session_state.latest_prediction_timestamp = (
+            latest_timestamp
+        )
+
+    # Om tidsstämpeln har ändrats har en ny prediktion tillkommit.
+    elif (
+        latest_timestamp
+        != st.session_state.latest_prediction_timestamp
+    ):
+
+        # Uppdatera värdet innan omladdningen så att vi inte
+        # hamnar i en oändlig rerun-loop.
+
+        st.session_state.latest_prediction_timestamp = (
+            latest_timestamp
+        )
+
+        # Kör om hela sidan så att statistiken hämtas på nytt.
+        st.rerun()
+
+
+# =========================
 # SIDINSTÄLLNINGAR
 # =========================
 
@@ -36,6 +85,8 @@ df = pd.DataFrame(
     rows,
     columns=columns
 )
+
+check_for_new_predictions()
 
 # Säkerställ att kolumnen finns även om äldre data saknar den.
 if "number_rooms" not in df.columns:
@@ -654,12 +705,13 @@ with price_col2:
             config=chart_config,
         )
 
+st.divider()
+
 
 # =========================
 # KOMMUN + KARTA
 # =========================
 
-st.divider()
 
 municipality_col, map_col = st.columns(2)
 
@@ -955,12 +1007,12 @@ with map_col:
             returned_objects=[],
         )
 
+st.divider()
+
 
 # =========================
 # SENASTE UPPSKATTNINGARNA
 # =========================
-
-st.divider()
 
 st.subheader("Senaste uppskattningarna")
 
@@ -1072,6 +1124,17 @@ display_df = latest_df[
 # VISA TABELL
 # =========================
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stElementToolbar"] {
+        display: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.dataframe(
     display_df,
     hide_index=True,
@@ -1080,7 +1143,6 @@ st.dataframe(
     column_config={
         "Tid": st.column_config.TextColumn(
             "Tid",
-            help="Datum och tid då uppskattningen registrerades.",
         ),
         "Kommun": st.column_config.TextColumn(
             "Kommun",
@@ -1090,7 +1152,6 @@ st.dataframe(
         ),
         "Antal rum": st.column_config.TextColumn(
             "Antal rum",
-            help="Antal rum som angavs vid uppskattningen.",
         ),
         "Boarea (m²)": st.column_config.TextColumn(
             "Boarea (m²)",
