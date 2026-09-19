@@ -556,7 +556,13 @@ with form_column:
 
         default_searchterm=(
             st.session_state.map_address
-        )
+        ),
+
+        style_overrides={
+            "searchbox": {
+                "optionEmpty": "hidden",
+            },
+        },
     )
 
 

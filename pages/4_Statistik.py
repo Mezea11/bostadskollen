@@ -9,6 +9,13 @@ from streamlit_folium import st_folium
 from src.database import get_predictions
 
 
+def format_price(price):
+    if pd.isna(price):
+        return "—"
+
+    return f"{price:,.0f} kr".replace(",", " ")
+
+
 # =========================
 # SIDINSTÄLLNINGAR
 # =========================
@@ -36,7 +43,6 @@ df = pd.DataFrame(
 # =========================
 
 if df.empty:
-
     st.title("📈 Statistik")
 
     st.info(
@@ -55,7 +61,6 @@ df["timestamp"] = pd.to_datetime(
     errors="coerce"
 )
 
-
 df["property_type"] = df["property_type"].replace({
     "APARTMENT": "Lägenhet",
     "HOUSE": "Villa",
@@ -70,8 +75,7 @@ df["property_type"] = df["property_type"].replace({
 st.title("📈 Statistik")
 
 st.write(
-    "Utforska data från genomförda "
-    "prisuppskattningar i Boprisindikatorn."
+    "Utforska prisuppskattningar och geografisk fördelning i Boprisindikatorn."
 )
 
 
@@ -81,67 +85,70 @@ st.write(
 
 st.subheader("Filter")
 
+st.caption(
+    "Välj datumintervall, bostadstyp och kommun "
+    "för att anpassa statistiken."
+)
 
-filter_col1, filter_col2, filter_col3 = st.columns(3)
+with st.container(border=True):
 
+    filter_col1, filter_col2, filter_col3 = st.columns(3)
 
-# =========================
-# DATUMFILTER
-# =========================
+    # =========================
+    # DATUMFILTER
+    # =========================
 
-with filter_col1:
+    with filter_col1:
 
-    min_date = df["timestamp"].min().date()
-    max_date = df["timestamp"].max().date()
+        min_date = df["timestamp"].min().date()
+        max_date = df["timestamp"].max().date()
 
-    date_range = st.date_input(
-        "Datum",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date,
-    )
+        date_range = st.date_input(
+            "Datum",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+        )
 
+    # =========================
+    # BOSTADSTYP
+    # =========================
 
-# =========================
-# BOSTADSTYP
-# =========================
+    with filter_col2:
 
-with filter_col2:
+        property_options = [
+            "Alla"
+        ] + sorted(
+            df["property_type"]
+            .dropna()
+            .unique()
+            .tolist()
+        )
 
-    property_options = [
-        "Alla"
-    ] + sorted(
-        df["property_type"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
+        selected_property = st.selectbox(
+            "Bostadstyp",
+            property_options,
+        )
 
-    selected_property = st.selectbox(
-        "Bostadstyp",
-        property_options,
-    )
+    # =========================
+    # KOMMUN
+    # =========================
 
+    with filter_col3:
 
-# =========================
-# KOMMUN
-# =========================
+        municipality_options = [
+            "Alla"
+        ] + sorted(
+            df["municipality"]
+            .dropna()
+            .unique()
+            .tolist()
+        )
 
-with filter_col3:
-
-    municipality_options = [
-        "Alla"
-    ] + sorted(
-        df["municipality"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
-
-    selected_municipality = st.selectbox(
-        "Kommun",
-        municipality_options,
-    )
+        selected_municipality = st.selectbox(
+            "Kommun",
+            municipality_options,
+        )
 
 
 # =========================
@@ -206,6 +213,64 @@ if filtered_df.empty:
 
 
 # =========================
+# CSV-EXPORT
+# =========================
+
+# Exportera alla uppskattningar som matchar de aktiva filtren.
+
+export_df = filtered_df[
+    [
+        "timestamp",
+        "municipality",
+        "property_type",
+        "living_area",
+        "land_area",
+        "predicted_price",
+        "lower_price",
+        "upper_price",
+    ]
+].copy()
+
+
+# Svenska kolumnrubriker och läsbar tidsstämpel.
+
+export_df = export_df.rename(
+    columns={
+        "timestamp": "Tid",
+        "address": "Adress",
+        "municipality": "Kommun",
+        "property_type": "Bostadstyp",
+        "living_area": "Boarea (m²)",
+        "land_area": "Tomtarea (m²)",
+        "predicted_price": "Uppskattat pris (kr)",
+        "lower_price": "Lägsta pris i intervall (kr)",
+        "upper_price": "Högsta pris i intervall (kr)",
+    }
+)
+
+export_df["Tid"] = export_df["Tid"].dt.strftime(
+    "%Y-%m-%d %H:%M"
+)
+
+
+# Semikolon fungerar bra som avgränsare i svensk Excel.
+
+csv_data = export_df.to_csv(
+    index=False,
+    sep=";",
+    encoding="utf-8-sig",
+)
+
+st.download_button(
+    label="📥 Ladda ner CSV",
+    data=csv_data,
+    file_name="boprisindikatorn_uppskattningar.csv",
+    mime="text/csv",
+    help="Ladda ner alla uppskattningar som matchar de valda filtren.",
+)
+
+
+# =========================
 # AVDELARE
 # =========================
 
@@ -213,112 +278,85 @@ st.divider()
 
 
 # =========================
-# ÖVERSIKT
+# ÖVERSIKT – KPI-KORT
 # =========================
 
 st.subheader("Översikt")
 
+st.caption(
+    "Sammanfattning av prisuppskattningarna "
+    "som matchar dina valda filter."
+)
 
 kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
 
+total_predictions = len(filtered_df)
 
-# =========================
-# FORMATERA PRIS
-# =========================
-
-def format_price(price):
-
-    if price >= 1_000_000:
-
-        return (
-            f"{price / 1_000_000:.2f}"
-            .replace(".", ",")
-            + " Mkr"
-        )
-
-    if price >= 1_000:
-
-        return (
-            f"{price / 1_000:.0f}"
-            .replace(".", ",")
-            + " tkr"
-        )
-
-    return (
-        f"{price:,.0f}"
-        .replace(",", " ")
-        + " kr"
-    )
+average_price = filtered_df["predicted_price"].mean()
+min_price = filtered_df["predicted_price"].min()
+max_price = filtered_df["predicted_price"].max()
 
 
-# =========================
-# ANTAL UPPSKATTNINGAR
-# =========================
+def format_price_millions(price):
+    if pd.isna(price):
+        return "—"
+
+    return f"{price / 1_000_000:.2f} Mkr".replace(".", ",")
+
 
 with kpi_col1:
-
-    st.metric(
-        "Antal uppskattningar",
-        f"{len(filtered_df):,}".replace(",", " "),
-    )
-
-
-# =========================
-# GENOMSNITTLIGT PRIS
-# =========================
+    with st.container(border=True):
+        st.metric(
+            label="Antal uppskattningar",
+            value=f"{total_predictions:,}".replace(",", " "),
+        )
 
 with kpi_col2:
-
-    average_price = filtered_df[
-        "predicted_price"
-    ].mean()
-
-    st.metric(
-        "Genomsnittligt pris",
-        format_price(average_price),
-    )
-
-
-# =========================
-# LÄGSTA
-# =========================
+    with st.container(border=True):
+        st.metric(
+            label="Genomsnittspris",
+            value=format_price_millions(average_price),
+        )
 
 with kpi_col3:
-
-    min_price = filtered_df[
-        "predicted_price"
-    ].min()
-
-    st.metric(
-        "Lägsta uppskattning",
-        format_price(min_price),
-    )
-
-
-# =========================
-# HÖGSTA
-# =========================
+    with st.container(border=True):
+        st.metric(
+            label="Lägsta pris",
+            value=format_price_millions(min_price),
+        )
 
 with kpi_col4:
+    with st.container(border=True):
+        st.metric(
+            label="Högsta pris",
+            value=format_price_millions(max_price),
+        )
 
-    max_price = filtered_df[
-        "predicted_price"
-    ].max()
-
-    st.metric(
-        "Högsta uppskattning",
-        format_price(max_price),
-    )
+st.divider()
 
 
 # =========================
 # DIAGRAM
 # =========================
 
-st.divider()
 
+# Gemensamma inställningar för enhetliga och lättlästa diagram.
 
-chart_col1, chart_col2 = st.columns(2)
+chart_config = {
+    "displayModeBar": False,
+    "scrollZoom": False,
+}
+
+chart_layout = {
+    "template": "plotly_white",
+    "height": 340,
+    "margin": dict(l=12, r=12, t=24, b=12),
+    "font": dict(size=12),
+    "paper_bgcolor": "rgba(0,0,0,0)",
+    "plot_bgcolor": "rgba(0,0,0,0)",
+}
+
+chart_col1, chart_col2 = st.columns(2, gap="large")
 
 
 # =========================
@@ -326,52 +364,65 @@ chart_col1, chart_col2 = st.columns(2)
 # =========================
 
 with chart_col1:
+    with st.container(border=True):
 
-    st.subheader(
-        "Antal uppskattningar över tid"
-    )
+        st.subheader("Antal uppskattningar över tid")
 
-    time_df = (
-        filtered_df
-        .assign(
-            date=filtered_df["timestamp"].dt.strftime("%d/%m")
+        st.caption(
+            "Antal registrerade uppskattningar per datum."
         )
-        .groupby("date")
-        .size()
-        .reset_index(name="Antal")
-    )
 
-    fig_time = px.bar(
-        time_df,
-        x="date",
-        y="Antal",
-        labels={
-            "date": "Datum",
-            "Antal": "Antal uppskattningar",
-        },
-    )
+        # Gruppera på hela datumet så att datum från olika år inte slås ihop.
 
-    fig_time.update_layout(
-        margin=dict(
-            l=10,
-            r=10,
-            t=10,
-            b=10,
-        ),
-    )
+        time_df = (
+            filtered_df
+            .dropna(subset=["timestamp"])
+            .assign(date=filtered_df["timestamp"].dt.date)
+            .groupby("date")
+            .size()
+            .reset_index(name="Antal")
+            .sort_values("date")
+        )
 
-    fig_time.update_xaxes(
-        type="category",
-    )
+        time_df["Datum"] = pd.to_datetime(
+            time_df["date"]
+        ).dt.strftime("%d/%m")
 
-    st.plotly_chart(
-        fig_time,
-        width="stretch",
-        config={
-            "displayModeBar": False,
-            "scrollZoom": False,
-        },
-    )
+        fig_time = px.bar(
+            time_df,
+            x="Datum",
+            y="Antal",
+            labels={
+                "Datum": "Datum",
+                "Antal": "Antal uppskattningar",
+            },
+            text="Antal",
+        )
+
+        fig_time.update_layout(**chart_layout)
+
+        fig_time.update_traces(
+            textposition="outside",
+            cliponaxis=False,
+        )
+
+        fig_time.update_xaxes(
+            type="category",
+            showgrid=False,
+            title=None,
+        )
+
+        fig_time.update_yaxes(
+            rangemode="tozero",
+            gridcolor="rgba(128,128,128,0.18)",
+            zeroline=False,
+        )
+
+        st.plotly_chart(
+            fig_time,
+            width="stretch",
+            config=chart_config,
+        )
 
 
 # =========================
@@ -379,56 +430,62 @@ with chart_col1:
 # =========================
 
 with chart_col2:
+    with st.container(border=True):
 
-    st.subheader(
-        "Fördelning per bostadstyp"
-    )
+        st.subheader("Fördelning per bostadstyp")
 
-    property_chart = (
-        filtered_df["property_type"]
-        .value_counts()
-        .reset_index()
-    )
+        st.caption(
+            "Antal uppskattningar för varje bostadstyp."
+        )
 
-    property_chart.columns = [
-        "property_type",
-        "Antal",
-    ]
+        property_chart = (
+            filtered_df["property_type"]
+            .value_counts()
+            .rename_axis("Bostadstyp")
+            .reset_index(name="Antal")
+        )
 
-    fig_property = px.bar(
-        property_chart,
-        x="property_type",
-        y="Antal",
-        labels={
-            "property_type": "Bostadstyp",
-            "Antal": "Antal uppskattningar",
-        },
-    )
+        fig_property = px.bar(
+            property_chart,
+            x="Bostadstyp",
+            y="Antal",
+            labels={
+                "Bostadstyp": "Bostadstyp",
+                "Antal": "Antal uppskattningar",
+            },
+            text="Antal",
+        )
 
-    fig_property.update_layout(
-        margin=dict(
-            l=10,
-            r=10,
-            t=10,
-            b=10,
-        ),
-    )
+        fig_property.update_layout(**chart_layout)
 
-    st.plotly_chart(
-        fig_property,
-        width="stretch",
-        config={
-            "displayModeBar": False,
-            "scrollZoom": False,
-        },
-    )
+        fig_property.update_traces(
+            textposition="outside",
+            cliponaxis=False,
+        )
+
+        fig_property.update_xaxes(
+            showgrid=False,
+            title=None,
+        )
+
+        fig_property.update_yaxes(
+            rangemode="tozero",
+            gridcolor="rgba(128,128,128,0.18)",
+            zeroline=False,
+        )
+
+        st.plotly_chart(
+            fig_property,
+            width="stretch",
+            config=chart_config,
+        )
 
 
 # =========================
 # PRIS PER M² + PRISFÖRDELNING
 # =========================
 
-price_col1, price_col2 = st.columns(2)
+price_col1, price_col2 = st.columns(2, gap="large")
 
 
 # =========================
@@ -436,66 +493,75 @@ price_col1, price_col2 = st.columns(2)
 # =========================
 
 with price_col1:
+    with st.container(border=True):
 
-    st.subheader(
-        "Genomsnittligt pris per m²"
-    )
+        st.subheader("Genomsnittligt pris per m²")
 
-    price_sqm_df = filtered_df.copy()
+        st.caption(
+            "Genomsnittligt uppskattat kvadratmeterpris per bostadstyp."
+        )
 
-    # Undvik division med 0
-    price_sqm_df = price_sqm_df[
-        price_sqm_df["living_area"] > 0
-    ]
+        price_sqm_df = filtered_df.copy()
 
-    price_sqm_df["price_per_sqm"] = (
-        price_sqm_df["predicted_price"]
-        / price_sqm_df["living_area"]
-    )
+        # Undvik division med 0.
 
-    price_sqm_chart = (
-        price_sqm_df
-        .groupby("property_type")["price_per_sqm"]
-        .mean()
-        .reset_index()
-    )
+        price_sqm_df = price_sqm_df[
+            price_sqm_df["living_area"] > 0
+        ]
 
-    price_sqm_chart["price_per_sqm"] = (
-        price_sqm_chart["price_per_sqm"]
-        .round(0)
-    )
+        price_sqm_df["price_per_sqm"] = (
+            price_sqm_df["predicted_price"]
+            / price_sqm_df["living_area"]
+        )
 
-    fig_price_sqm = px.bar(
-        price_sqm_chart,
-        x="property_type",
-        y="price_per_sqm",
-        labels={
-            "property_type": "Bostadstyp",
-            "price_per_sqm": "Pris per m²",
-        },
-    )
+        price_sqm_chart = (
+            price_sqm_df
+            .groupby("property_type")["price_per_sqm"]
+            .mean()
+            .reset_index()
+        )
 
-    fig_price_sqm.update_layout(
-        margin=dict(
-            l=10,
-            r=10,
-            t=10,
-            b=10,
-        ),
-    )
+        price_sqm_chart["price_per_sqm"] = (
+            price_sqm_chart["price_per_sqm"]
+            .round(0)
+        )
 
-    fig_price_sqm.update_yaxes(
-        tickformat=",.0f",
-    )
+        fig_price_sqm = px.bar(
+            price_sqm_chart,
+            x="property_type",
+            y="price_per_sqm",
+            labels={
+                "property_type": "Bostadstyp",
+                "price_per_sqm": "Pris per m² (kr)",
+            },
+            text="price_per_sqm",
+        )
 
-    st.plotly_chart(
-        fig_price_sqm,
-        width="stretch",
-        config={
-            "displayModeBar": False,
-            "scrollZoom": False,
-        },
-    )
+        fig_price_sqm.update_layout(**chart_layout)
+
+        fig_price_sqm.update_traces(
+            texttemplate="%{text:,.0f} kr",
+            textposition="outside",
+            cliponaxis=False,
+        )
+
+        fig_price_sqm.update_xaxes(
+            showgrid=False,
+            title=None,
+        )
+
+        fig_price_sqm.update_yaxes(
+            tickformat=",.0f",
+            rangemode="tozero",
+            gridcolor="rgba(128,128,128,0.18)",
+            zeroline=False,
+        )
+
+        st.plotly_chart(
+            fig_price_sqm,
+            width="stretch",
+            config=chart_config,
+        )
 
 
 # =========================
@@ -503,17 +569,17 @@ with price_col1:
 # =========================
 
 with price_col2:
+    with st.container(border=True):
 
-    st.subheader(
-        "Prisfördelning"
-    )
+        st.subheader("Prisfördelning")
 
-    # Skapa prisintervall
-    price_distribution_df = filtered_df.copy()
+        st.caption(
+            "Hur uppskattningarna fördelar sig mellan prisintervallen."
+        )
 
-    price_distribution_df["prisintervall"] = pd.cut(
-        price_distribution_df["predicted_price"],
-        bins=[
+        price_distribution_df = filtered_df.copy()
+
+        price_bins = [
             0,
             1_000_000,
             2_000_000,
@@ -521,57 +587,66 @@ with price_col2:
             4_000_000,
             5_000_000,
             float("inf"),
-        ],
-        labels=[
+        ]
+
+        price_labels = [
             "0–1 Mkr",
             "1–2 Mkr",
             "2–3 Mkr",
             "3–4 Mkr",
             "4–5 Mkr",
             "5+ Mkr",
-        ],
-        right=False,
-    )
+        ]
 
-    price_distribution_chart = (
-        price_distribution_df["prisintervall"]
-        .value_counts()
-        .sort_index()
-        .reset_index()
-    )
+        price_distribution_df["prisintervall"] = pd.cut(
+            price_distribution_df["predicted_price"],
+            bins=price_bins,
+            labels=price_labels,
+            right=False,
+        )
 
-    price_distribution_chart.columns = [
-        "prisintervall",
-        "Antal",
-    ]
+        price_distribution_chart = (
+            price_distribution_df["prisintervall"]
+            .value_counts()
+            .reindex(price_labels, fill_value=0)
+            .rename_axis("Prisintervall")
+            .reset_index(name="Antal")
+        )
 
-    fig_price_distribution = px.bar(
-        price_distribution_chart,
-        x="prisintervall",
-        y="Antal",
-        labels={
-            "prisintervall": "Prisintervall",
-            "Antal": "Antal uppskattningar",
-        },
-    )
+        fig_price_distribution = px.bar(
+            price_distribution_chart,
+            x="Prisintervall",
+            y="Antal",
+            labels={
+                "Prisintervall": "Prisintervall",
+                "Antal": "Antal uppskattningar",
+            },
+            text="Antal",
+        )
 
-    fig_price_distribution.update_layout(
-        margin=dict(
-            l=10,
-            r=10,
-            t=10,
-            b=10,
-        ),
-    )
+        fig_price_distribution.update_layout(**chart_layout)
 
-    st.plotly_chart(
-        fig_price_distribution,
-        width="stretch",
-        config={
-            "displayModeBar": False,
-            "scrollZoom": False,
-        },
-    )
+        fig_price_distribution.update_traces(
+            textposition="outside",
+            cliponaxis=False,
+        )
+
+        fig_price_distribution.update_xaxes(
+            showgrid=False,
+            title=None,
+        )
+
+        fig_price_distribution.update_yaxes(
+            rangemode="tozero",
+            gridcolor="rgba(128,128,128,0.18)",
+            zeroline=False,
+        )
+
+        st.plotly_chart(
+            fig_price_distribution,
+            width="stretch",
+            config=chart_config,
+        )
 
 
 # =========================
@@ -580,8 +655,8 @@ with price_col2:
 
 st.divider()
 
-
 municipality_col, map_col = st.columns(2)
+
 
 
 # =========================
@@ -590,49 +665,68 @@ municipality_col, map_col = st.columns(2)
 
 with municipality_col:
 
-    st.subheader(
-        "Top 10 kommuner"
-    )
+    with st.container(border=True):
 
-    municipality_chart = (
-        filtered_df["municipality"]
-        .value_counts()
-        .head(10)
-    )
+        st.subheader("Top 10 kommuner")
 
-    municipality_chart = (
-        municipality_chart
-        .sort_values(ascending=True)
-    )
+        st.caption(
+            "Kommunerna med flest prisuppskattningar "
+            "bland de filtrerade resultaten."
+        )
 
-    fig_municipality = px.bar(
-        municipality_chart,
-        x=municipality_chart.values,
-        y=municipality_chart.index,
-        orientation="h",
-        labels={
-            "x": "Antal uppskattningar",
-            "y": "Kommun",
-        },
-    )
+        municipality_chart = (
+            filtered_df["municipality"]
+            .dropna()
+            .value_counts()
+            .head(10)
+            .sort_values(ascending=True)
+        )
 
-    fig_municipality.update_layout(
-        margin=dict(
-            l=10,
-            r=10,
-            t=10,
-            b=10,
-        ),
-    )
+        fig_municipality = px.bar(
+            x=municipality_chart.values,
+            y=municipality_chart.index,
+            orientation="h",
+            labels={
+                "x": "Antal uppskattningar",
+                "y": "Kommun",
+            },
+            text=municipality_chart.values,
+        )
 
-    st.plotly_chart(
-        fig_municipality,
-        width="stretch",
-        config={
-            "displayModeBar": False,
-            "scrollZoom": False,
-        },
-    )
+        fig_municipality.update_layout(
+            template="plotly_white",
+            height=400,
+            margin=dict(l=12, r=20, t=15, b=12),
+            font=dict(size=12),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+
+        fig_municipality.update_traces(
+            textposition="outside",
+            cliponaxis=False,
+        )
+
+        fig_municipality.update_xaxes(
+            title=None,
+            rangemode="tozero",
+            gridcolor="rgba(128,128,128,0.18)",
+            zeroline=False,
+        )
+
+        fig_municipality.update_yaxes(
+            title=None,
+            showgrid=False,
+        )
+
+        st.plotly_chart(
+            fig_municipality,
+            width="stretch",
+            config={
+                "displayModeBar": False,
+                "scrollZoom": False,
+            },
+        )
 
 
 # =========================
@@ -641,9 +735,7 @@ with municipality_col:
 
 with map_col:
 
-    st.subheader(
-        "Geografisk fördelning"
-    )
+    st.subheader("Geografisk fördelning")
 
     map_df = filtered_df.dropna(
         subset=[
@@ -651,7 +743,6 @@ with map_col:
             "longitude",
         ]
     )
-
 
     if map_df.empty:
 
@@ -666,13 +757,8 @@ with map_col:
         # KARTANS CENTRUM
         # =========================
 
-        center_lat = map_df[
-            "latitude"
-        ].mean()
-
-        center_lon = map_df[
-            "longitude"
-        ].mean()
+        center_lat = map_df["latitude"].mean()
+        center_lon = map_df["longitude"].mean()
 
 
         # =========================
@@ -715,14 +801,6 @@ with map_col:
             )
 
 
-            address = (
-                row["address"]
-                if pd.notna(row["address"])
-                and row["address"]
-                else "Okänd adress"
-            )
-
-
             municipality = (
                 row["municipality"]
                 if pd.notna(row["municipality"])
@@ -750,9 +828,7 @@ with map_col:
             # PRIS
             # -------------------------
 
-            if pd.notna(
-                row["predicted_price"]
-            ):
+            if pd.notna(row["predicted_price"]):
 
                 predicted_price = (
                     f"{row['predicted_price']:,.0f} kr"
@@ -805,34 +881,20 @@ with map_col:
                     🏠 Bostadsuppskattning
                 </h4>
 
-
-                <b>Adress</b><br>
-                {address}
-
-
-                <br><br>
-
-
                 <b>Kommun</b><br>
                 {municipality}
 
-
                 <br><br>
-
 
                 <b>Bostadstyp</b><br>
                 {property_type}
 
-
                 <br><br>
-
 
                 <b>Boarea</b><br>
                 {living_area}
 
-
                 <br><br>
-
 
                 <b>Uppskattat pris</b><br>
 
@@ -840,9 +902,7 @@ with map_col:
                     {predicted_price}
                 </strong>
 
-
                 <br><br>
-
 
                 <b>Prisintervall</b><br>
                 {price_interval}
@@ -889,3 +949,142 @@ with map_col:
             height=500,
             returned_objects=[],
         )
+
+
+# =========================
+# SENASTE UPPSKATTNINGARNA
+# =========================
+
+st.divider()
+
+st.subheader("Senaste uppskattningarna")
+
+
+# Sortera efter tid och hämta de 10 senaste.
+
+latest_df = (
+    filtered_df
+    .sort_values("timestamp", ascending=False)
+    .head(10)
+    .copy()
+)
+
+
+# =========================
+# FORMATERA TABELLEN
+# =========================
+
+# Datum och tid
+
+latest_df["Tid"] = (
+    latest_df["timestamp"]
+    .dt.strftime("%Y-%m-%d %H:%M")
+)
+
+
+# Boarea
+
+latest_df["Boarea (m²)"] = (
+    latest_df["living_area"]
+    .apply(
+        lambda x: f"{x:.0f}" if pd.notna(x) else "–"
+    )
+)
+
+
+# Tomtarea
+
+latest_df["Tomtarea (m²)"] = (
+    latest_df["land_area"]
+    .apply(
+        lambda x: f"{x:.0f}" if pd.notna(x) and x > 0 else "–"
+    )
+)
+
+
+# Uppskattat pris
+
+latest_df["Uppskattat pris"] = (
+    latest_df["predicted_price"]
+    .apply(
+        lambda x: f"{x:,.0f} kr".replace(",", " ")
+        if pd.notna(x) else "–"
+    )
+)
+
+
+# Prisintervall
+
+latest_df["Intervall"] = latest_df.apply(
+    lambda row: (
+        f"{row['lower_price']:,.0f} – "
+        f"{row['upper_price']:,.0f} kr"
+    ).replace(",", " ")
+    if (
+        pd.notna(row["lower_price"])
+        and pd.notna(row["upper_price"])
+    )
+    else "–",
+    axis=1,
+)
+
+
+# =========================
+# VÄLJ KOLUMNER
+# =========================
+
+display_df = latest_df[
+    [
+        "Tid",
+        "municipality",
+        "property_type",
+        "Boarea (m²)",
+        "Tomtarea (m²)",
+        "Uppskattat pris",
+        "Intervall",
+    ]
+].rename(
+    columns={
+        "municipality": "Kommun",
+        "property_type": "Bostadstyp",
+        "Intervall": "Prisintervall",
+    }
+)
+
+
+# =========================
+# VISA TABELL
+# =========================
+
+
+st.dataframe(
+    display_df,
+    hide_index=True,
+    width="stretch",
+    height=390,
+    column_config={
+        "Tid": st.column_config.TextColumn(
+            "Tid",
+            help="Datum och tid då uppskattningen registrerades.",
+        ),
+        "Kommun": st.column_config.TextColumn(
+            "Kommun",
+        ),
+        "Bostadstyp": st.column_config.TextColumn(
+            "Bostadstyp",
+        ),
+        "Boarea (m²)": st.column_config.TextColumn(
+            "Boarea (m²)",
+        ),
+        "Tomtarea (m²)": st.column_config.TextColumn(
+            "Tomtarea (m²)",
+        ),
+        "Uppskattat pris": st.column_config.TextColumn(
+            "Uppskattat pris",
+        ),
+        "Intervall": st.column_config.TextColumn(
+            "Prisintervall",
+            width="medium",
+        ),
+    },
+)

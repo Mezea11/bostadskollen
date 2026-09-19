@@ -8,3 +8,6 @@ matplotlib
 seaborn
 folium
 streamlit-folium
+pydantic
+streamlit-searchbox
+plotly
