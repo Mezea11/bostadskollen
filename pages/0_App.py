@@ -12,6 +12,9 @@ import json
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 from pathlib import Path
+from src.database import init_database, log_prediction
+
+init_database()
 
 
 # =========================
@@ -1071,6 +1074,24 @@ if submitted:
     upper_price = (
 
         prediction + mae
+    )
+
+    # =========================
+    # LOGGA PREDIKTION
+    # =========================
+
+    log_prediction(
+        address=address if isinstance(address, str) else "",
+        latitude=st.session_state.latitude,
+        longitude=st.session_state.longitude,
+        municipality=st.session_state.selected_municipality,
+        property_type=typology,
+        living_area=living_area,
+        land_area=land_area,
+        predicted_price=prediction,
+        lower_price=lower_price,
+        upper_price=upper_price,
+        model_name=typology,
     )
 
 

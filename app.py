@@ -51,6 +51,11 @@ pages = [
         title="Modelljämförelse",
         icon="📊"
     ),
+    st.Page(
+        "pages/4_Statistik.py", 
+        title="Statistik", 
+        icon="📈"
+    )
 ]
 
 pg = st.navigation(
@@ -85,6 +90,11 @@ with st.sidebar:
         "pages/3_Modelljamforelse.py",
         label="Modelljämförelse",
         icon="📊"
+    )
+    st.page_link(
+        "pages/4_Statistik.py",
+        label="Statistik",
+        icon="📈"
     )
 
 pg.run()
