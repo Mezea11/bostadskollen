@@ -527,6 +527,7 @@ with form_column:
 
                             "longitude":
                                 result["longitude"],
+                            "address": label,
                         }
                     )
                 )
@@ -1087,7 +1088,11 @@ if submitted:
     # =========================
 
     log_prediction(
-        address=address if isinstance(address, str) else "",
+        address=(
+            address.get("address", "")
+            if isinstance(address, dict)
+            else address
+        ) or st.session_state.map_address,
         latitude=st.session_state.latitude,
         longitude=st.session_state.longitude,
         municipality=st.session_state.selected_municipality,
@@ -1098,6 +1103,7 @@ if submitted:
         lower_price=lower_price,
         upper_price=upper_price,
         model_name=typology,
+        number_rooms=number_rooms,
     )
 
 

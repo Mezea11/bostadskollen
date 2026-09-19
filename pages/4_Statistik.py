@@ -37,6 +37,10 @@ df = pd.DataFrame(
     columns=columns
 )
 
+# Säkerställ att kolumnen finns även om äldre data saknar den.
+if "number_rooms" not in df.columns:
+    df["number_rooms"] = pd.NA
+
 
 # =========================
 # INGEN DATA
@@ -223,6 +227,7 @@ export_df = filtered_df[
         "timestamp",
         "municipality",
         "property_type",
+        "number_rooms",
         "living_area",
         "land_area",
         "predicted_price",
@@ -240,6 +245,7 @@ export_df = export_df.rename(
         "address": "Adress",
         "municipality": "Kommun",
         "property_type": "Bostadstyp",
+        "number_rooms": "Antal rum",
         "living_area": "Boarea (m²)",
         "land_area": "Tomtarea (m²)",
         "predicted_price": "Uppskattat pris (kr)",
@@ -658,7 +664,6 @@ st.divider()
 municipality_col, map_col = st.columns(2)
 
 
-
 # =========================
 # TOPP 10 KOMMUNER
 # =========================
@@ -982,6 +987,16 @@ latest_df["Tid"] = (
 )
 
 
+# Antal rum
+
+latest_df["Antal rum"] = (
+    latest_df["number_rooms"]
+    .apply(
+        lambda x: f"{x:.0f}" if pd.notna(x) else "–"
+    )
+)
+
+
 # Boarea
 
 latest_df["Boarea (m²)"] = (
@@ -1038,6 +1053,7 @@ display_df = latest_df[
         "Tid",
         "municipality",
         "property_type",
+        "Antal rum",
         "Boarea (m²)",
         "Tomtarea (m²)",
         "Uppskattat pris",
@@ -1056,7 +1072,6 @@ display_df = latest_df[
 # VISA TABELL
 # =========================
 
-
 st.dataframe(
     display_df,
     hide_index=True,
@@ -1072,6 +1087,10 @@ st.dataframe(
         ),
         "Bostadstyp": st.column_config.TextColumn(
             "Bostadstyp",
+        ),
+        "Antal rum": st.column_config.TextColumn(
+            "Antal rum",
+            help="Antal rum som angavs vid uppskattningen.",
         ),
         "Boarea (m²)": st.column_config.TextColumn(
             "Boarea (m²)",
