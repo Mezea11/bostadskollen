@@ -1106,13 +1106,39 @@ if submitted:
         number_rooms=number_rooms,
     )
 
+    # Undertryck popupen för den egna prediktionen.
+    st.session_state.just_created_prediction = True
 
-    # =========================
-    # RESULTAT
-    # =========================
+
+    
+# =========================
+# SPARA PREDIKTIONSRESULTAT
+# =========================
+
+if submitted:
+
+    st.session_state["prediction_result"] = {
+        "prediction": prediction,
+        "lower_price": lower_price,
+        "upper_price": upper_price,
+        "mae": mae,
+    }
+
+
+# =========================
+# VISA PREDIKTIONSRESULTAT
+# =========================
+
+result = st.session_state.get("prediction_result")
+
+if result:
+
+    prediction = result["prediction"]
+    lower_price = result["lower_price"]
+    upper_price = result["upper_price"]
+    mae = result["mae"]
 
     st.html(
-
         f"""
         <div id="result" style="
             border-radius: 12px;
@@ -1130,7 +1156,6 @@ if submitted:
                 🏠 Uppskattat utgångspris
             </div>
 
-
             <div style="
                 font-size: 42px;
                 font-weight: 700;
@@ -1139,14 +1164,12 @@ if submitted:
                 {prediction:,.0f} kr
             </div>
 
-
             <div style="
                 font-size: 17px;
                 margin-bottom: 6px;
             ">
                 Ungefärligt prisintervall
             </div>
-
 
             <div style="
                 font-size: 25px;
@@ -1156,7 +1179,6 @@ if submitted:
                 –
                 {upper_price:,.0f} kr
             </div>
-
 
             <div style="
                 font-size: 14px;
@@ -1169,22 +1191,18 @@ if submitted:
 
         </div>
 
-
         <script>
-
             setTimeout(function() {{
+                const result = document.getElementById("result");
 
-                document
-                    .getElementById("result")
-                    .scrollIntoView({{
+                if (result) {{
+                    result.scrollIntoView({{
                         behavior: "smooth",
                         block: "center"
                     }});
-
+                }}
             }}, 200);
-
         </script>
         """,
-
         unsafe_allow_javascript=True
     )

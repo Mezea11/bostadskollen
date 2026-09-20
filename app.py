@@ -1,14 +1,25 @@
+
 from pathlib import Path
-import streamlit as st
-from src.database import get_predictions
+import html
+import textwrap
 import time
 
+import streamlit as st
+from src.database import get_predictions
+
+
 ROOT = Path(__file__).resolve().parent
+
 
 st.set_page_config(
     page_title="Boprisindikatorn",
     page_icon="🏠"
 )
+
+
+# =========================
+# CSS
+# =========================
 
 st.markdown(
     """
@@ -20,9 +31,11 @@ st.markdown(
         div[data-testid="stMainBlockContainer"] {
             padding-top: 0 !important;
         }
+
         div[data-testid="stSidebarHeader"] {
             display: none;
         }
+
         [data-testid="stDivider"] {
             margin-top: 0px;
             margin-bottom: 10px;
@@ -31,6 +44,11 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+
+# =========================
+# SIDOR
+# =========================
 
 pages = [
     st.Page(
@@ -54,11 +72,12 @@ pages = [
         icon="📊"
     ),
     st.Page(
-        "pages/4_Statistik.py", 
-        title="Statistik", 
+        "pages/4_Statistik.py",
+        title="Statistik",
         icon="📈"
     )
 ]
+
 
 pg = st.navigation(
     pages,
@@ -66,13 +85,15 @@ pg = st.navigation(
 )
 
 
-
 # =========================
-# NY PREDIKTION - SIDOMENY
+# BEVAKNING AV NY PREDIKTION
 # =========================
+# Fragmentet kontrollerar databasen varje sekund.
+# Popupen renderas INTE här, så den byggs inte om
+# varje gång fragmentet körs.
 
 @st.fragment(run_every="1s")
-def prediction_notification():
+def check_for_new_prediction():
 
     rows, columns = get_predictions(1)
 
@@ -90,43 +111,66 @@ def prediction_notification():
     )
 
     # Första kontrollen:
-    # Spara aktuell prediktion som utgångsläge.
-    # Visa inte en gammal prediktion som ny vid uppstart.
+    # Spara befintlig prediktion som utgångsläge.
+    # Visa inte en gammal prediktion vid uppstart.
     if "notification_last_id" not in st.session_state:
 
         st.session_state.notification_last_id = latest_id
         st.session_state.new_prediction = None
+        st.session_state.notification_time = None
 
-    # Ny prediktion har registrerats.
+    # En ny prediktion har registrerats.
     elif latest_id != st.session_state.notification_last_id:
 
         st.session_state.notification_last_id = latest_id
 
-        st.session_state.new_prediction = latest_prediction
+        # Om prediktionen skapades i den här sessionen
+        # ska ingen popup visas.
+        if st.session_state.get("just_created_prediction", False):
 
-        # Spara när notisen ska börja visas
-        st.session_state.notification_time = time.monotonic()
+            st.session_state.just_created_prediction = False
 
-    prediction = st.session_state.get("new_prediction")
+            st.session_state.new_prediction = None
+            st.session_state.notification_time = None
 
-    # Visa ingenting om det inte finns någon ny prediktion.
-    if not prediction:
-        return
+        else:
 
-    # Dölj notisen efter 5 sekunder.
-    notification_time = st.session_state.get("notification_time")
+            st.session_state.new_prediction = latest_prediction
+            st.session_state.notification_time = time.monotonic()
 
-    if notification_time is None:
-        return
+        # Kör om appen så att eventuella ändringar visas.
+        st.rerun()
 
-    if time.monotonic() - notification_time >= 5:
-        st.session_state.new_prediction = None
-        st.session_state.notification_time = None
-        return
 
-    # =========================
-    # FORMATERING
-    # =========================
+
+# =========================
+# KÖR DATABASKONTROLLEN
+# =========================
+
+check_for_new_prediction()
+
+
+# =========================
+# POPUP - FORMATERING
+# =========================
+
+prediction = st.session_state.get("new_prediction")
+notification_time = st.session_state.get("notification_time")
+
+show_notification = (
+    prediction is not None
+    and notification_time is not None
+    and time.monotonic() - notification_time < 5
+)
+
+
+# =========================
+# POPUP - RENDERING
+# =========================
+# Denna del ligger utanför fragmentet.
+# CSS-animationen döljer popupen efter 5 sekunder.
+
+if show_notification:
 
     municipality = (
         prediction.get("municipality")
@@ -161,9 +205,7 @@ def prediction_notification():
     price = prediction.get("predicted_price")
 
     if price is not None:
-        price_text = (
-            f"{price:,.0f} kr".replace(",", " ")
-        )
+        price_text = f"{price:,.0f} kr".replace(",", " ")
     else:
         price_text = "Pris saknas"
 
@@ -171,43 +213,141 @@ def prediction_notification():
     upper_price = prediction.get("upper_price")
 
     if lower_price is not None and upper_price is not None:
+
         interval_text = (
             f"{lower_price:,.0f}–{upper_price:,.0f} kr"
             .replace(",", " ")
         )
+
     else:
         interval_text = None
 
-    # =========================
-    # VISA NOTIS
-    # =========================
+    # Säker HTML-formatering
+    municipality_safe = html.escape(str(municipality))
+    property_type_safe = html.escape(str(property_type))
+    rooms_text_safe = html.escape(str(rooms_text))
+    area_text_safe = html.escape(str(area_text))
+    price_text_safe = html.escape(str(price_text))
 
-    with st.container(border=True):
+    interval_html = ""
 
-        st.markdown("### 🟢 Ny uppskattning!")
+    if interval_text:
 
-        st.markdown(f"**{municipality}**")
+        interval_html = textwrap.dedent(
+            f"""
+            <div style="
+                margin-top: 8px;
+                font-size: 13px;
+                color: #cbd5e1;
+            ">
+                Prisintervall: {html.escape(str(interval_text))}
+            </div>
+            """
+        ).strip()
 
-        st.caption(
-            f"{property_type} · {rooms_text} · {area_text}"
-        )
+    # Popupens HTML
+    popup_html = textwrap.dedent(
+        f"""
+        <style>
+            @keyframes popup-fade {{
+                0% {{
+                    opacity: 0;
+                    transform: translateY(12px);
+                }}
 
-        st.markdown("**Uppskattat pris**")
+                8% {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
 
-        st.markdown(
-            f"## {price_text}"
-        )
+                85% {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
 
-        if interval_text:
-            st.caption(
-                f"Prisintervall: {interval_text}"
-            )
+                100% {{
+                    opacity: 0;
+                    visibility: hidden;
+                    transform: translateY(8px);
+                }}
+            }}
+        </style>
 
-        st.caption("Senaste registrerade uppskattningen")
+        <div style="
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            z-index: 999999;
+            width: 340px;
+            max-width: calc(100vw - 48px);
+            box-sizing: border-box;
+            background: #17212b;
+            color: #ffffff;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+            font-family: sans-serif;
+            animation: popup-fade 5s ease forwards;
+        ">
 
+            <div style="
+                font-size: 17px;
+                font-weight: 700;
+                margin-bottom: 10px;
+            ">
+                🟢 Ny uppskattning!
+            </div>
+
+            <div style="
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 6px;
+            ">
+                {municipality_safe}
+            </div>
+
+            <div style="
+                color: #cbd5e1;
+                font-size: 13px;
+                margin-bottom: 14px;
+            ">
+                {property_type_safe} · {rooms_text_safe} · {area_text_safe}
+            </div>
+
+            <div style="
+                color: #cbd5e1;
+                font-size: 13px;
+                margin-bottom: 4px;
+            ">
+                Uppskattat pris
+            </div>
+
+            <div style="
+                font-size: 27px;
+                font-weight: 700;
+                line-height: 1.2;
+            ">
+                {price_text_safe}
+            </div>
+
+            {interval_html}
+        
+        </div>
+        """
+    ).strip()
+
+    st.html(popup_html)
+
+
+# =========================
+# EGEN SIDOMENY
+# =========================
 
 with st.sidebar:
+
     st.title("🏠 Boprisindikatorn")
+
     st.write(
         "Uppskatta en bostads utgångspris med en modell tränad i notebooken."
     )
@@ -219,27 +359,34 @@ with st.sidebar:
         label="App",
         icon="🏠"
     )
+
     st.page_link(
         "pages/1_Geografi.py",
         label="Geografi",
         icon="🌍"
     )
+
     st.page_link(
         "pages/2_Boarea.py",
         label="Boarea",
         icon="📐"
     )
+
     st.page_link(
         "pages/3_Modelljamforelse.py",
         label="Modelljämförelse",
         icon="📊"
     )
+
     st.page_link(
         "pages/4_Statistik.py",
         label="Statistik",
         icon="📈"
     )
 
-    prediction_notification()
+
+# =========================
+# KÖR AKTUELL SIDA
+# =========================
 
 pg.run()
