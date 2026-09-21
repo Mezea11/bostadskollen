@@ -213,6 +213,9 @@ with st.container(border=True):
 
 filtered_df = df.copy()
 
+st.write("Antal rader före filtrering:", len(filtered_df))
+st.write("Senaste timestamp före filtrering:", filtered_df["timestamp"].max())
+
 
 # Datum
 
@@ -1014,6 +1017,8 @@ st.divider()
 # =========================
 # SENASTE UPPSKATTNINGARNA
 # =========================
+st.write("Antal rader efter filtrering:", len(filtered_df))
+st.write("Senaste timestamp efter filtrering:", filtered_df["timestamp"].max())
 
 st.subheader("Senaste uppskattningarna")
 
