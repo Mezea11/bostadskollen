@@ -28,6 +28,7 @@ def check_for_new_predictions():
     # den senaste posten först.
 
     rows, columns = get_predictions(1)
+    st.write("Senaste databaspost:", rows)
 
     if not rows:
         latest_timestamp = None
