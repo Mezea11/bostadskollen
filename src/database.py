@@ -1,7 +1,7 @@
-
 import sqlite3
 from pathlib import Path
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,7 +97,7 @@ def log_prediction(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                datetime.now().isoformat(),
+                datetime.now(ZoneInfo("Europe/Stockholm")).replace(tzinfo=None).isoformat(),
                 address,
                 latitude,
                 longitude,
