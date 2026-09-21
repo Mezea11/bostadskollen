@@ -1032,6 +1032,12 @@ latest_df = (
     .copy()
 )
 
+latest_df = filtered_df.sort_values("timestamp", ascending=False).head(10).copy()
+
+st.write("DEBUG – senaste 10 uppskattningar:")
+st.dataframe(
+    latest_df[["timestamp", "address", "predicted_price"]]
+)
 
 # =========================
 # FORMATERA TABELLEN
