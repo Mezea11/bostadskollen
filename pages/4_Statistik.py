@@ -1025,6 +1025,16 @@ st.subheader("Senaste uppskattningarna")
 
 # Sortera efter tid och hämta de 10 senaste.
 
+st.write("DEBUG – datatyp för timestamp:", filtered_df["timestamp"].dtype)
+
+st.write("DEBUG – 15 senaste efter sortering:")
+st.dataframe(
+    filtered_df.sort_values(
+        "timestamp",
+        ascending=False
+    )[["timestamp", "address", "predicted_price"]].head(15)
+)
+
 latest_df = (
     filtered_df
     .sort_values("timestamp", ascending=False)
