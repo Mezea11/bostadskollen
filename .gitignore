@@ -12,3 +12,6 @@ __pycache__/
 Thumbs.db
 *.log
 models/*.joblib
+
+!models/global_model.joblib
+!models/apartment_model.joblib
