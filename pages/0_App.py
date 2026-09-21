@@ -440,6 +440,14 @@ if "map_address" not in st.session_state:
     st.session_state.map_address = ""
 
 
+# streamlit-folium kan returnera samma last_clicked igen efter en rerun.
+# Spara därför senast hanterade klick så att ett gammalt klick inte skapar
+# en rerun-loop och hindrar adressfältet från att uppdateras.
+if "last_handled_map_click" not in st.session_state:
+
+    st.session_state.last_handled_map_click = None
+
+
 # =========================
 # KOMMUNER
 # =========================
@@ -534,7 +542,6 @@ with form_column:
 
         return suggestions
 
-
     # =========================
     # ADRESS SEARCHBOX
     # =========================
@@ -565,7 +572,6 @@ with form_column:
             },
         },
     )
-
 
     # =========================
     # VALD ADRESS
@@ -601,7 +607,6 @@ with form_column:
                 new_longitude
             )
 
-
             # =========================
             # FLYTTA KARTANS CENTRUM
             # VID ADRESSÖKNING
@@ -615,7 +620,6 @@ with form_column:
                 new_longitude
             )
 
-
             # =========================
             # HÄMTA KOMMUN
             # =========================
@@ -627,7 +631,6 @@ with form_column:
                 )
             )
 
-
             matched_municipality = (
                 match_municipality(
                     geocoded_municipality,
@@ -635,13 +638,11 @@ with form_column:
                 )
             )
 
-
             if matched_municipality:
 
                 st.session_state.selected_municipality = (
                     matched_municipality
                 )
-
 
             # Nollställ eventuell
             # gammal kartadress.
@@ -649,7 +650,6 @@ with form_column:
             st.session_state.map_address = ""
 
             st.rerun()
-
 
     # =========================
     # PREDIKTIONSFORMULÄR
@@ -671,7 +671,6 @@ with form_column:
                 "Radhus",
         }
 
-
         # =========================
         # BOSTADSTYP
         # =========================
@@ -688,7 +687,6 @@ with form_column:
                 typology_labels[x]
         )
 
-
         # =========================
         # BOAREA
         # =========================
@@ -703,7 +701,6 @@ with form_column:
 
             step=1
         )
-
 
         # =========================
         # TOMTAREA
@@ -720,7 +717,6 @@ with form_column:
             step=10
         )
 
-
         # =========================
         # ANTAL RUM
         # =========================
@@ -735,7 +731,6 @@ with form_column:
 
             step=1
         )
-
 
         # =========================
         # BERÄKNA PRIS
@@ -764,15 +759,14 @@ with map_column:
             st.session_state.map_center_longitude
         ],
 
-        #zoom_start=10,
+        # zoom_start=10,
 
-        #min_zoom=4,
+        # min_zoom=4,
 
-        #max_bounds=True,
+        # max_bounds=True,
 
-        #max_bounds_viscosity=1.0
+        # max_bounds_viscosity=1.0
     )
-
 
     # =========================
     # MARKÖR
@@ -795,7 +789,6 @@ with map_column:
 
     ).add_to(m)
 
-
     # =========================
     # VISA KARTA
     # =========================
@@ -808,27 +801,41 @@ with map_column:
 
         height=470,
 
+        key="property_location_map",
+
         returned_objects=[
             "last_clicked",
             "center"
         ]
     )
 
-
     # =========================
     # KARTKLICK
     # =========================
 
-    if map_data.get("last_clicked"):
+    last_clicked = map_data.get("last_clicked")
+
+    click_signature = (
+        round(last_clicked["lat"], 7),
+        round(last_clicked["lng"], 7),
+    ) if last_clicked else None
+
+    if (
+        last_clicked
+        and click_signature
+        != st.session_state.last_handled_map_click
+    ):
+
+        # Markera klicket som hanterat före nätverksanrop och rerun.
+        st.session_state.last_handled_map_click = click_signature
 
         new_latitude = (
-            map_data["last_clicked"]["lat"]
+            last_clicked["lat"]
         )
 
         new_longitude = (
-            map_data["last_clicked"]["lng"]
+            last_clicked["lng"]
         )
-
 
         # =========================
         # SPARA PINNENS POSITION
@@ -841,7 +848,6 @@ with map_column:
         st.session_state.longitude = (
             new_longitude
         )
-
 
         # =========================
         # SPARA KARTANS NUVARANDE
@@ -858,7 +864,6 @@ with map_column:
                 map_data["center"]["lng"]
             )
 
-
         # =========================
         # HÄMTA ADRESS
         # =========================
@@ -869,7 +874,6 @@ with map_column:
                 new_longitude
             )
         )
-
 
         # =========================
         # HÄMTA KOMMUN
@@ -882,7 +886,6 @@ with map_column:
             )
         )
 
-
         # =========================
         # MATCHA KOMMUN
         # =========================
@@ -894,13 +897,11 @@ with map_column:
             )
         )
 
-
         if matched_municipality:
 
             st.session_state.selected_municipality = (
                 matched_municipality
             )
-
 
         # =========================
         # FYLL ADRESSFÄLTET
@@ -917,7 +918,6 @@ with map_column:
         else:
 
             st.session_state.map_address = ""
-
 
         # =========================
         # RITA OM SIDAN
@@ -940,7 +940,6 @@ if submitted:
         model_paths[typology]
     )
 
-
     # =========================
     # PIPELINE
     # =========================
@@ -948,7 +947,6 @@ if submitted:
     pipeline = bundle[
         "pipeline"
     ]
-
 
     # =========================
     # VALIDERING MED PYDANTIC
@@ -973,7 +971,6 @@ if submitted:
         longitude=st.session_state.longitude,
     )
 
-
     # =========================
     # OMVANDLA TILL DICTIONARY
     # =========================
@@ -981,7 +978,6 @@ if submitted:
     user_input = (
         housing_input.model_dump()
     )
-
 
     # =========================
     # TOMTLOGIK
@@ -993,7 +989,6 @@ if submitted:
         land_area > 0
     )
 
-
     # Lägenheter har ingen relevant
     # tomtarea.
 
@@ -1002,7 +997,6 @@ if submitted:
         user_input[
             "land_area_sqm"
         ] = None
-
 
     # För villor används tomtarea endast
     # om den är minst 50 m².
@@ -1016,7 +1010,6 @@ if submitted:
             "land_area_sqm"
         ] = None
 
-
     # =========================
     # SKAPA MODELLINPUT
     # =========================
@@ -1024,7 +1017,6 @@ if submitted:
     model_input = pd.DataFrame(
         [user_input]
     )
-
 
     # =========================
     # GÖR PREDIKTION
@@ -1036,7 +1028,6 @@ if submitted:
             model_input
         )[0]
     )
-
 
     # =========================
     # HÄMTA MAE
@@ -1065,7 +1056,6 @@ if submitted:
                 "mae"
             ]
         )
-
 
     # =========================
     # PRISINTERVALL
@@ -1110,7 +1100,6 @@ if submitted:
     st.session_state.just_created_prediction = True
 
 
-    
 # =========================
 # SPARA PREDIKTIONSRESULTAT
 # =========================

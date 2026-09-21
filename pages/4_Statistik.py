@@ -17,55 +17,6 @@ def format_price(price):
 
 
 # =========================
-# KONTROLLERA NYA PREDIKTIONER
-# =========================
-
-@st.fragment(run_every="1s")
-def check_for_new_predictions():
-
-    # Hämta den senaste prediktionen från databasen.
-    # Detta förutsätter att get_predictions(1) returnerar
-    # den senaste posten först.
-
-    rows, columns = get_predictions(1)
-
-    if not rows:
-        latest_timestamp = None
-
-    else:
-        latest_prediction = dict(
-            zip(columns, rows[0])
-        )
-
-        latest_timestamp = latest_prediction.get(
-            "timestamp"
-        )
-
-    # Spara den senaste kända tidsstämpeln första gången.
-    if "latest_prediction_timestamp" not in st.session_state:
-
-        st.session_state.latest_prediction_timestamp = (
-            latest_timestamp
-        )
-
-    # Om tidsstämpeln har ändrats har en ny prediktion tillkommit.
-    elif (
-        latest_timestamp
-        != st.session_state.latest_prediction_timestamp
-    ):
-
-        # Uppdatera värdet innan omladdningen så att vi inte
-        # hamnar i en oändlig rerun-loop.
-
-        st.session_state.latest_prediction_timestamp = (
-            latest_timestamp
-        )
-
-        # Kör om hela sidan så att statistiken hämtas på nytt.
-        st.rerun()
-
-
-# =========================
 # SIDINSTÄLLNINGAR
 # =========================
 
@@ -85,8 +36,6 @@ df = pd.DataFrame(
     rows,
     columns=columns
 )
-
-check_for_new_predictions()
 
 # Säkerställ att kolumnen finns även om äldre data saknar den.
 if "number_rooms" not in df.columns:
@@ -115,6 +64,14 @@ df["timestamp"] = pd.to_datetime(
     df["timestamp"],
     errors="coerce"
 )
+
+# Ogiltiga tidsstämplar kan annars krascha .date() i datumfiltret.
+df = df.dropna(subset=["timestamp"]).copy()
+
+if df.empty:
+    st.title("📈 Statistik")
+    st.info("Det finns inga uppskattningar med en giltig tidsstämpel.")
+    st.stop()
 
 df["property_type"] = df["property_type"].replace({
     "APARTMENT": "Lägenhet",
@@ -817,7 +774,6 @@ with map_col:
         center_lat = map_df["latitude"].mean()
         center_lon = map_df["longitude"].mean()
 
-
         # =========================
         # SKAPA KARTA
         # =========================
@@ -830,7 +786,6 @@ with map_col:
             zoom_start=6,
         )
 
-
         # =========================
         # MARKÖRKLUSTER
         # =========================
@@ -838,7 +793,6 @@ with map_col:
         marker_cluster = MarkerCluster().add_to(
             stats_map
         )
-
 
         # =========================
         # MARKÖRER
@@ -857,14 +811,12 @@ with map_col:
                 else "Okänd"
             )
 
-
             municipality = (
                 row["municipality"]
                 if pd.notna(row["municipality"])
                 and row["municipality"]
                 else "Okänd"
             )
-
 
             # -------------------------
             # BOAREA
@@ -880,7 +832,6 @@ with map_col:
 
                 living_area = "–"
 
-
             # -------------------------
             # PRIS
             # -------------------------
@@ -895,7 +846,6 @@ with map_col:
             else:
 
                 predicted_price = "–"
-
 
             # -------------------------
             # PRISINTERVALL
@@ -919,7 +869,6 @@ with map_col:
             else:
 
                 price_interval = "–"
-
 
             # =========================
             # POPUP
@@ -967,7 +916,6 @@ with map_col:
             </div>
             """
 
-
             # =========================
             # CIRKELMARKÖR
             # =========================
@@ -994,7 +942,6 @@ with map_col:
             ).add_to(
                 marker_cluster
             )
-
 
         # =========================
         # VISA KARTA

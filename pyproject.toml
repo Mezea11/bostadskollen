@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "lakevalley", email = "lakevalleymalmo@gmail.com" }
 ]
-requires-python = ">=3.14.5"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "folium>=0.20.0",
     "joblib>=1.6.0",
@@ -15,7 +15,7 @@ dependencies = [
     "pandas>=3.0.5",
     "plotly>=7.1.0",
     "pydantic>=2.13.5",
-    "scikit-learn>=1.9.1",
+    "scikit-learn==1.9.0",
     "streamlit>=1.63.0",
     "streamlit-folium>=0.27.4",
     "streamlit-searchbox>=0.1.24",
