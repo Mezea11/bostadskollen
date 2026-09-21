@@ -821,6 +821,8 @@ with map_column:
 
     if map_data.get("last_clicked"):
 
+        st.session_state.pop("prediction_result", None)
+
         new_latitude = (
             map_data["last_clicked"]["lat"]
         )
