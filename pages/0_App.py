@@ -562,9 +562,18 @@ with form_column:
 
         debounce=300,
 
+        default=(
+            st.session_state.map_address
+            or None
+        ),
+
         default_searchterm=(
             st.session_state.map_address
         ),
+
+        default_use_searchterm=True,
+
+        edit_after_submit="current",
 
         style_overrides={
             "searchbox": {
