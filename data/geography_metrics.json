@@ -1,0 +1,34 @@
+{
+  "without_geography": {
+    "mae": 1173125.6956079176,
+    "rmse": 1604466.0833211257,
+    "median_error": 866298.2540056282,
+    "r2": 0.2558123035675066
+  },
+  "with_geography": {
+    "mae": 620692.8980274023,
+    "rmse": 914743.863583465,
+    "median_error": 401603.5059344118,
+    "r2": 0.7581086083425363
+  },
+  "rmse_improvement_percent": 42.987647224675946,
+  "test_rows": 2018,
+  "random_state": 42,
+  "segments": {
+    "APARTMENT": {
+      "rmse_without_geography": 1409737.5159817596,
+      "rmse_with_geography": 709211.8899262934,
+      "improvement_percent": 49.69191910648778
+    },
+    "HOUSE": {
+      "rmse_without_geography": 2104606.7848349325,
+      "rmse_with_geography": 1364085.3454202672,
+      "improvement_percent": 35.18573848334075
+    },
+    "ROW_HOUSE": {
+      "rmse_without_geography": 1566952.3079713224,
+      "rmse_with_geography": 945301.7505066771,
+      "improvement_percent": 39.67258954227358
+    }
+  }
+}
