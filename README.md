@@ -1,4 +1,4 @@
-# Bostadskollen
+# Boprisindikatorn
 
 Minimal boilerplate för ett ML-projekt med Jupyter Notebook och Streamlit.
 Modellerna tränas och utvärderas i notebooken. Streamlit laddar de färdiga
@@ -7,7 +7,7 @@ modellerna från `models/` och gör prediktioner.
 ## Projektstruktur
 
 ```text
-bostadskollen/
+boprisindikatorn/
 ├── app.py
 ├── requirements.txt
 ├── data/

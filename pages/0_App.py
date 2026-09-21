@@ -78,7 +78,7 @@ def search_address(address: str) -> list[dict]:
     request = Request(
         url,
         headers={
-            "User-Agent": "Bostadskollen/1.0"
+            "User-Agent": "Boprisindikatorn/1.0"
         }
     )
 
@@ -261,7 +261,7 @@ def get_address_from_coordinates(
     request = Request(
         url,
         headers={
-            "User-Agent": "Bostadskollen/1.0"
+            "User-Agent": "Boprisindikatorn/1.0"
         }
     )
 
