@@ -28,7 +28,6 @@ def check_for_new_predictions():
     # den senaste posten först.
 
     rows, columns = get_predictions(1)
-    st.write("Senaste databaspost:", rows)
 
     if not rows:
         latest_timestamp = None
@@ -212,9 +211,6 @@ with st.container(border=True):
 # =========================
 
 filtered_df = df.copy()
-
-st.write("Antal rader före filtrering:", len(filtered_df))
-st.write("Senaste timestamp före filtrering:", filtered_df["timestamp"].max())
 
 
 # Datum
@@ -1017,23 +1013,11 @@ st.divider()
 # =========================
 # SENASTE UPPSKATTNINGARNA
 # =========================
-st.write("Antal rader efter filtrering:", len(filtered_df))
-st.write("Senaste timestamp efter filtrering:", filtered_df["timestamp"].max())
 
 st.subheader("Senaste uppskattningarna")
 
 
 # Sortera efter tid och hämta de 10 senaste.
-
-st.write("DEBUG – datatyp för timestamp:", filtered_df["timestamp"].dtype)
-
-st.write("DEBUG – 15 senaste efter sortering:")
-st.dataframe(
-    filtered_df.sort_values(
-        "timestamp",
-        ascending=False
-    )[["timestamp", "address", "predicted_price"]].head(15)
-)
 
 latest_df = (
     filtered_df
@@ -1042,12 +1026,6 @@ latest_df = (
     .copy()
 )
 
-latest_df = filtered_df.sort_values("timestamp", ascending=False).head(10).copy()
-
-st.write("DEBUG – senaste 10 uppskattningar:")
-st.dataframe(
-    latest_df[["timestamp", "address", "predicted_price"]]
-)
 
 # =========================
 # FORMATERA TABELLEN
