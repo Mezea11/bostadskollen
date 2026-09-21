@@ -591,6 +591,9 @@ with form_column:
 
         if position_changed:
 
+            # Dölj det tidigare prediktionsresultatet
+            st.session_state.pop("prediction_result", None)
+
             # Uppdatera pinnens position.
 
             st.session_state.latitude = (
