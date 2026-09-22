@@ -103,3 +103,21 @@ python -m streamlit run app.py
 
 Hypotesanalysen och modellträningen görs i notebooken. Streamlit-sidorna i
 `pages/` används endast för den interaktiva presentationen.
+
+## Liveversion
+
+Appen finns publicerad här:
+
+[Öppna Bostadskollen](DIN_STREAMLIT_LÄNK)
+
+## Deployment
+
+Applikationen distribueras genom Streamlit Community Cloud.
+
+Produktionsversionen använder:
+
+- `models/global_model.joblib`
+- `models/apartment_model.joblib`
+- lokal SQLite för demonstrationsdata
+
+SQLite-datan kan återställas när molninstansen startas om.
