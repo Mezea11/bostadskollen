@@ -130,36 +130,6 @@ except (FileNotFoundError, ValueError) as error:
 # VISA HYPOTESRESULTAT
 # =========================
 
-st.subheader("Resultat från hypotesen")
-
-without_geography = geography_metrics["without_geography"]
-with_geography = geography_metrics["with_geography"]
-improvement = geography_metrics["rmse_improvement_percent"]
-
-metric_column_1, metric_column_2, metric_column_3 = st.columns(3)
-
-metric_column_1.metric(
-    "RMSE utan geografi",
-    format_price(without_geography["rmse"]),
-)
-
-metric_column_2.metric(
-    "RMSE med geografi",
-    format_price(with_geography["rmse"]),
-)
-
-metric_column_3.metric(
-    "Förbättring",
-    f"{improvement:.1f} %",
-)
-
-st.success(
-    "Modellen med kommun och koordinater fick cirka "
-    f"{improvement:.1f} procent lägre RMSE. Resultatet ger stöd "
-    "för hypotesen att geografi bidrar till modellens "
-    "prediktionsförmåga."
-)
-
 
 # =========================
 # JÄMFÖRELSEFORMULÄR
@@ -345,6 +315,36 @@ if compare_button:
 # =========================
 
 st.divider()
+
+st.subheader("Resultat från hypotesen")
+
+without_geography = geography_metrics["without_geography"]
+with_geography = geography_metrics["with_geography"]
+improvement = geography_metrics["rmse_improvement_percent"]
+
+metric_column_1, metric_column_2, metric_column_3 = st.columns(3)
+
+metric_column_1.metric(
+    "RMSE utan geografi",
+    format_price(without_geography["rmse"]),
+)
+
+metric_column_2.metric(
+    "RMSE med geografi",
+    format_price(with_geography["rmse"]),
+)
+
+metric_column_3.metric(
+    "Förbättring",
+    f"{improvement:.1f} %",
+)
+
+st.success(
+    "Modellen med kommun och koordinater fick cirka "
+    f"{improvement:.1f} procent lägre RMSE. Resultatet ger stöd "
+    "för hypotesen att geografi bidrar till modellens "
+    "prediktionsförmåga."
+)
 
 with st.expander("Metod och begränsningar"):
     st.write(
