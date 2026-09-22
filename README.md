@@ -98,7 +98,7 @@ filnamn. Inga modeller eller hyperparametrar definieras av boilerplaten.
 ## Starta Streamlit
 
 ```bash
-python -m streamlit run app.py
+uv run streamlit run app.py
 ```
 
 Hypotesanalysen och modellträningen görs i notebooken. Streamlit-sidorna i
