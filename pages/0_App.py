@@ -606,6 +606,8 @@ with form_column:
 
         if position_changed:
 
+            st.session_state.pop("prediction_result", None)
+
             # Uppdatera pinnens position.
 
             st.session_state.latitude = (
@@ -834,7 +836,7 @@ with map_column:
         and click_signature
         != st.session_state.last_handled_map_click
     ):
-
+        st.session_state.pop("prediction_result", None)
         # Markera klicket som hanterat före nätverksanrop och rerun.
         st.session_state.last_handled_map_click = click_signature
 
