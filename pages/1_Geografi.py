@@ -101,7 +101,12 @@ def default_municipalities(
 # SIDANS RUBRIK
 # =========================
 
-st.title("Geografisk prisjämförelse")
+st.set_page_config(
+    page_title="Geografisk prisjämförelse",
+    page_icon="📍",
+)
+
+st.title("📍 Geografisk prisjämförelse")
 
 st.write(
     "Jämför hur modellen värderar samma bostad i olika kommuner. "

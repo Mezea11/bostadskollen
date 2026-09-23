@@ -3,12 +3,12 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-
-st.title("Hypotes 2 – Boarea och utgångspris")
-st.write(
-    "Hänger större boarea ihop med högre utgångspris, "
-    "och blir modellens prediktioner bättre när boarea används?"
+st.set_page_config(
+    page_title="Boarea och utgångspris",
+    page_icon="🏠",
 )
+
+st.title("🏠 Boarea och utgångspris")
 
 # Läs underlaget som sparades från notebooken
 data_dir = Path(__file__).resolve().parents[1] / "data" / "h2"
@@ -33,7 +33,8 @@ housing_types = {
     "Hus": "HOUSE",
     "Radhus": "ROW_HOUSE",
 }
-selected_type = st.selectbox("Välj bostadstyp för diagrammet", list(housing_types))
+selected_type = st.selectbox(
+    "Välj bostadstyp för diagrammet", list(housing_types))
 
 if selected_type == "Alla":
     selected_data = train_data
@@ -80,12 +81,16 @@ results = test_results if evaluation == "Testdata" else validation_results
 
 without_area = results.loc["Modell utan boarea"]
 with_area = results.loc["Modell med boarea"]
-rmse_reduction = (without_area["RMSE"] - with_area["RMSE"]) / without_area["RMSE"] * 100
-mae_reduction = (without_area["MAE"] - with_area["MAE"]) / without_area["MAE"] * 100
+rmse_reduction = (without_area["RMSE"] -
+                  with_area["RMSE"]) / without_area["RMSE"] * 100
+mae_reduction = (without_area["MAE"] -
+                 with_area["MAE"]) / without_area["MAE"] * 100
 
 left, right = st.columns(2)
-left.metric("Minskning av RMSE med boarea", f"{rmse_reduction:.2f} %".replace(".", ","))
-right.metric("Minskning av MAE med boarea", f"{mae_reduction:.2f} %".replace(".", ","))
+left.metric("Minskning av RMSE med boarea",
+            f"{rmse_reduction:.2f} %".replace(".", ","))
+right.metric("Minskning av MAE med boarea",
+             f"{mae_reduction:.2f} %".replace(".", ","))
 
 # Behåll alla fyra modeller och visa felmåtten i kronor
 display_results = results.rename(
@@ -103,7 +108,8 @@ st.dataframe(
 st.caption("Lägre MAE, RMSE och medianfel är bättre. Ett högre R² är bättre.")
 
 if rmse_reduction > 0 and mae_reduction > 0:
-    st.success("Modellen med boarea har lägre RMSE och MAE i den valda utvärderingen.")
+    st.success(
+        "Modellen med boarea har lägre RMSE och MAE i den valda utvärderingen.")
 else:
     st.info("Jämför båda felmåtten i tabellen för att bedöma resultatet.")
 

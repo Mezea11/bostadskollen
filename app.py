@@ -66,13 +66,9 @@ pages = [
         title="Boarea",
         icon="📐"
     ),
+
     st.Page(
-        "pages/3_Modelljamforelse.py",
-        title="Modelljämförelse",
-        icon="📊"
-    ),
-    st.Page(
-        "pages/4_Statistik.py",
+        "pages/3_Statistik.py",
         title="Statistik",
         icon="📈"
     )
@@ -142,11 +138,9 @@ def check_for_new_prediction():
         st.rerun()
 
 
-
 # =========================
 # KÖR DATABASKONTROLLEN
 # =========================
-
 check_for_new_prediction()
 
 
@@ -373,13 +367,7 @@ with st.sidebar:
     )
 
     st.page_link(
-        "pages/3_Modelljamforelse.py",
-        label="Modelljämförelse",
-        icon="📊"
-    )
-
-    st.page_link(
-        "pages/4_Statistik.py",
+        "pages/3_Statistik.py",
         label="Statistik",
         icon="📈"
     )
