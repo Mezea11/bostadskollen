@@ -808,9 +808,9 @@ with map_column:
 
         m,
 
-        width=250,
+        width=300,
 
-        height=470,
+        height=500,
 
         key="property_location_map",
 

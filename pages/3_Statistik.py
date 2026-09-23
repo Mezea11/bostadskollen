@@ -950,7 +950,7 @@ with map_col:
         st_folium(
             stats_map,
             width=None,
-            height=500,
+            height=485,
             returned_objects=[],
         )
 
