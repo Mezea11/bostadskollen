@@ -350,7 +350,7 @@ with st.sidebar:
 
     st.page_link(
         "pages/0_App.py",
-        label="App",
+        label="Prisuppskattaren",
         icon="🏠"
     )
 

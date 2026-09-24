@@ -16,6 +16,7 @@ from src.database import init_database, log_prediction
 
 init_database()
 
+st.write("Klicka på kartan eller använd sökrutan för att välja adress.")
 
 # =========================
 # SÖKVÄGAR
