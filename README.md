@@ -1,19 +1,19 @@
-# Bostadskollen
+# Boprisindikatorn
 
-Bostadskollen är en Streamlitapp som uppskattar **utgångspriset** för lägenheter, villor och radhus i Sverige. Användaren anger bostadstyp, läge, boarea och andra bostadsuppgifter och får en uppskattning från en tränad maskininlärningsmodell. Appen innehåller också sidor där man kan utforska geografiska prisskillnader, boareans betydelse och statistik. Målet är att visa ett helt flöde från rådata och modellträning till en användbar applikation.
+Boprisindikatorn är en Streamlitapp som uppskattar **utgångspriset** för lägenheter, villor och radhus i Sverige. Användaren anger bostadstyp, läge, boarea och andra bostadsuppgifter och får en uppskattning från en tränad maskininlärningsmodell. Appen innehåller också sidor där man kan utforska geografiska prisskillnader, boareans betydelse och statistik. Målet är att visa ett helt flöde från rådata och modellträning till en användbar applikation.
 
 Uppskattningen gäller annonsens utgångspris, inte bostadens slutpris. Den ska ses som en indikation, inte som en värdering av en enskild bostad.
 
 ## Testa appen
 
-[Öppna Bostadskollen](https://bostadskollen.streamlit.app/)
+[Öppna Boprisindikatorn](https://boprisindikatorn.streamlit.app/)
 
 ## Kör lokalt
 
 Projektet använder Python 3.14 och [uv](https://docs.astral.sh/uv/getting-started/installation/) för att installera beroenden från `pyproject.toml` och `uv.lock`. Installera Git och uv först. Öppna sedan en terminal och kör:
 
 ```bash
-git clone https://github.com/Mezea11/bostadskollen.git
+git clone https://github.com/lakevalley/boprisindikatorn.git
 cd bostadskollen
 uv sync
 uv run streamlit run app.py
