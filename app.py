@@ -40,6 +40,29 @@ st.markdown(
             margin-top: 0px;
             margin-bottom: 10px;
         }
+
+        /* Hamburgermeny: grundutseende */
+        div[data-testid="stPopover"] button {
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        /* Dölj hamburgermenyn på större skärmar */
+        div[data-testid="stPopover"] {
+            display: none;
+        }
+
+        /* Visa hamburgermenyn på mindre skärmar */
+        @media (max-width: 768px) {
+            div[data-testid="stPopover"] {
+                display: block;
+            }
+
+            div[data-testid="stPopover"] button {
+                min-height: 42px;
+                padding: 0.5rem 1rem;
+            }
+        }
     </style>
     """,
     unsafe_allow_html=True
@@ -66,7 +89,6 @@ pages = [
         title="Boarea",
         icon="📐"
     ),
-
     st.Page(
         "pages/3_Statistik.py",
         title="Statistik",
@@ -79,6 +101,39 @@ pg = st.navigation(
     pages,
     position="hidden"
 )
+
+
+# =========================
+# HAMBURGERMENY
+# =========================
+# Visas på mindre skärmar via CSS.
+# Länkarna använder de sidor som registrerats ovan.
+
+with st.popover("☰ Meny", use_container_width=False):
+
+    st.page_link(
+        "pages/0_App.py",
+        label="Prisuppskattaren",
+        icon="🏠"
+    )
+
+    st.page_link(
+        "pages/1_Geografi.py",
+        label="Geografi",
+        icon="🌍"
+    )
+
+    st.page_link(
+        "pages/2_Boarea.py",
+        label="Boarea",
+        icon="📐"
+    )
+
+    st.page_link(
+        "pages/3_Statistik.py",
+        label="Statistik",
+        icon="📈"
+    )
 
 
 # =========================
@@ -141,6 +196,7 @@ def check_for_new_prediction():
 # =========================
 # KÖR DATABASKONTROLLEN
 # =========================
+
 check_for_new_prediction()
 
 
@@ -326,7 +382,7 @@ if show_notification:
             </div>
 
             {interval_html}
-        
+
         </div>
         """
     ).strip()
