@@ -399,7 +399,7 @@ with st.sidebar:
     st.title("🏠 Boprisindikatorn")
 
     st.write(
-        "Uppskatta en bostads utgångspris med en modell tränad i notebooken."
+        "Gör en prisuppskattning med en tränad maskininlärningsmodell."
     )
 
     st.divider()
