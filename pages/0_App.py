@@ -16,6 +16,7 @@ from src.database import init_database, log_prediction
 
 init_database()
 
+st.write("Klicka på kartan eller använd sökrutan för att välja adress.")
 
 # =========================
 # SÖKVÄGAR
@@ -606,6 +607,8 @@ with form_column:
 
         if position_changed:
 
+            st.session_state.pop("prediction_result", None)
+
             # Uppdatera pinnens position.
 
             st.session_state.latitude = (
@@ -806,9 +809,9 @@ with map_column:
 
         m,
 
-        width=250,
+        width=300,
 
-        height=470,
+        height=500,
 
         key="property_location_map",
 
@@ -834,7 +837,7 @@ with map_column:
         and click_signature
         != st.session_state.last_handled_map_click
     ):
-
+        st.session_state.pop("prediction_result", None)
         # Markera klicket som hanterat före nätverksanrop och rerun.
         st.session_state.last_handled_map_click = click_signature
 
