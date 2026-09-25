@@ -10,6 +10,13 @@ st.set_page_config(
 
 st.title("🏠 Boarea och utgångspris")
 
+st.write(
+    "**Hypotes 2:** Hjälper boarea modellen att uppskatta utgångspriset bättre?"
+)
+st.caption(
+    "Vi undersöker både sambandet mellan boarea och pris och jämför samma modell med och utan boarea."
+)
+
 # Läs underlaget som sparades från notebooken
 data_dir = Path(__file__).resolve().parents[1] / "data" / "h2"
 file_names = ["eda_train.csv", "validation_results.csv", "test_results.csv"]
@@ -109,9 +116,15 @@ st.caption("Lägre MAE, RMSE och medianfel är bättre. Ett högre R² är bätt
 
 if rmse_reduction > 0 and mae_reduction > 0:
     st.success(
-        "Modellen med boarea har lägre RMSE och MAE i den valda utvärderingen.")
+        f"Resultat: Med boarea minskade RMSE med "
+        f"{rmse_reduction:.2f} % och MAE med "
+        f"{mae_reduction:.2f} % i {evaluation.lower()}."
+        .replace(".", ",")
+    )
 else:
-    st.info("Jämför båda felmåtten i tabellen för att bedöma resultatet.")
+    st.info(
+        "Boarea gav inte lägre både RMSE och MAE i den valda utvärderingen."
+    )
 
 with st.expander("Metod och begränsningar"):
     st.write(
@@ -131,4 +144,8 @@ with st.expander("Metod och begränsningar"):
     st.write(
         "En första analys gjordes på hela datamängden före uppdelningen. "
         "Testdata var därför inte helt osedda."
+    )
+    st.write(
+        "Efter den slutliga utvärderingen på testdata ändrades inte modellen "
+        "för att förbättra testresultatet."
     )
